@@ -1,0 +1,20 @@
+Origin: AllN1Downloader
+Label: AllN1Downloader
+Suite: stable
+Codename: stable
+Date: Tue, 24 Nov 2026 17:27:41 +0000
+Architectures: amd64
+Components: main
+Description: AllN1Downloader signed package repository
+
+MD5Sum:
+ a2e919eb0b3dc53bf2c2599e1a931653              566 main/binary-amd64/Packages
+ d7b3c4841e1d88c41dccacfaf0785112              408 main/binary-amd64/Packages.gz
+
+SHA1:
+ cc38052c73c09f26dff493265b614f84237c485d              566 main/binary-amd64/Packages
+ a2eda435ef6c4cef76d2b6269126adfc06e94960              408 main/binary-amd64/Packages.gz
+
+SHA256:
+ aa6d7953f4e4b6914b9d95a708d36c96f2a4a03a980faca27adf701b36dcd458              566 main/binary-amd64/Packages
+ 769f512ef10da93f2a46e8339889cd721918e30accf38652e5776253845fef79              408 main/binary-amd64/Packages.gz
