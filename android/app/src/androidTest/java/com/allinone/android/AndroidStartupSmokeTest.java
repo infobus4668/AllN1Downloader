@@ -56,8 +56,8 @@ public final class AndroidStartupSmokeTest {
                         return;
                     }
                     webView.evaluateJavascript(
-                             "document.querySelector('#versionInfo')?.textContent === 'AllN1Downloader v1.0.0' " +
-                                    "&& document.querySelector('#cookiesControl')?.classList.contains('hidden') " +
+                             "document.querySelector('#versionInfo')?.textContent === 'AllN1Downloader v" + BuildConfig.VERSION_NAME + "' " +
+                                     "&& document.querySelector('#cookiesControl')?.classList.contains('hidden') " +
                                     "&& document.querySelector('#notifyLabel')?.classList.contains('hidden') " +
                                      "&& typeof window.AllN1DownloaderAndroid?.onDownloadQueued === 'function'",
                             value -> {
