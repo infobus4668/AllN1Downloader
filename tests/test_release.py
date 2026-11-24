@@ -4,6 +4,7 @@ import functools
 import io
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -27,6 +28,51 @@ os.environ.setdefault('ALLN1_DISABLE_UPDATE_CHECK', '1')
 import app
 
 ROOT = Path(app.__file__).parent
+
+
+class RangeFixtureHandler(SimpleHTTPRequestHandler):
+    """Serve the generated audio fixture with byte ranges for FFmpeg seeking."""
+
+    def send_head(self):
+        range_header = self.headers.get('Range', '')
+        match = re.fullmatch(r'bytes=(\d*)-(\d*)', range_header)
+        path = Path(self.translate_path(self.path))
+        if not match or not path.is_file():
+            return super().send_head()
+        size = path.stat().st_size
+        first, last = match.groups()
+        if first:
+            start = int(first)
+            end = min(int(last), size - 1) if last else size - 1
+        elif last:
+            length = min(int(last), size)
+            start, end = size - length, size - 1
+        else:
+            return super().send_head()
+        if start >= size or end < start:
+            self.send_error(416, 'Requested Range Not Satisfiable')
+            return None
+        source = path.open('rb')
+        source.seek(start)
+        self.range_remaining = end - start + 1
+        self.send_response(206)
+        self.send_header('Content-Type', self.guess_type(str(path)))
+        self.send_header('Accept-Ranges', 'bytes')
+        self.send_header('Content-Range', f'bytes {start}-{end}/{size}')
+        self.send_header('Content-Length', str(self.range_remaining))
+        self.end_headers()
+        return source
+
+    def copyfile(self, source, outputfile):
+        remaining = getattr(self, 'range_remaining', None)
+        if remaining is None:
+            return super().copyfile(source, outputfile)
+        while remaining:
+            chunk = source.read(min(64 * 1024, remaining))
+            if not chunk:
+                break
+            outputfile.write(chunk)
+            remaining -= len(chunk)
 
 
 class QueueTests(unittest.TestCase):
@@ -289,7 +335,8 @@ class ReleaseSmoke(unittest.TestCase):
         with wave.open(str(source_dir / 'tone.wav'), 'wb') as wav:
             wav.setparams((1, 2, 16000, 0, 'NONE', 'not compressed'))
             wav.writeframes(bytes(32000 * 4))
-        source = ThreadingHTTPServer(('127.0.0.1', 0), functools.partial(SimpleHTTPRequestHandler, directory=str(source_dir)))
+        handler = functools.partial(RangeFixtureHandler, directory=str(source_dir))
+        source = ThreadingHTTPServer(('127.0.0.1', 0), handler)
         self.addCleanup(source.server_close)
         threading.Thread(target=source.serve_forever, daemon=True).start()
         self.addCleanup(source.shutdown)
