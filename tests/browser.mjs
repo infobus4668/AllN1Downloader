@@ -8,7 +8,13 @@ import {setTimeout as sleep} from 'node:timers/promises';
 
 const [executable, base, fixture] = process.argv.slice(2);
 const profile = await mkdtemp(join(tmpdir(), 'allinone-browser-'));
-const child = spawn(executable, ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--no-first-run', '--disable-background-networking', 'about:blank'], {stdio:'ignore'});
+const args = [
+  '--headless=new',
+  ...(process.platform === 'linux' ? ['--no-sandbox', '--disable-dev-shm-usage'] : []),
+  '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--no-first-run',
+  '--disable-background-networking', 'about:blank',
+];
+const child = spawn(executable, args, {stdio:'ignore'});
 let socket;
 async function until(check) {
   for (let i = 0; i < 100; i++) {
