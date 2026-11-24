@@ -32,7 +32,7 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.1"
 UPDATE_REPOSITORY = os.environ.get("ALLN1_UPDATE_REPOSITORY", "infobus4668/AllN1Downloader")
 UPDATE_LOCK = threading.Lock()
 UPDATE_STATE: Dict[str, Any] = {

@@ -1,4 +1,4 @@
-# AllN1Downloader 1.0.0 — release and update guide
+# AllN1Downloader 1.0.1 — release and update guide
 
 **Deployment:** one application process, one OS user, loopback only. Run from
 a writable directory. Desktop actions use the user's file manager/player; the
@@ -33,14 +33,14 @@ there are segments to remove still depends on the source and remote service.
 Dependency update automation, CI validation, and toolchain update policy are
 documented in [DEPENDENCIES.md](DEPENDENCIES.md).
 
-## AllN1Downloader 1.0.0 clean build
+## AllN1Downloader 1.0.1 clean build
 
 - Updated yt-dlp to `2026.11.23` on desktop and Android. Android uses FastAPI
   `0.125.0` with Pydantic `1.10.27`; desktop uses FastAPI `0.165.0`. Both use
   Uvicorn `0.54.0`.
 - Updated Android Gradle Plugin to `9.5.2`, build-tools to `37.0.0`, and NDK to
-  `30.0.16248370`; the target API remains 37. The app version is `1.0.0` and
-  Android `versionCode` is `3` so existing installs can upgrade. Its historical
+  `30.0.16248370`; the target API remains 37. The app version is `1.0.1` and
+  Android `versionCode` is `4` so existing installs can upgrade. Its historical
   application ID is retained for signing and data continuity.
 - Built and signed `android/app/build/outputs/apk/release/app-release.apk` and
   `android/app/build/outputs/bundle/release/app-release.aab` with the persistent
@@ -174,9 +174,9 @@ Ubuntu when enabled in a GitHub repository.
 `pip check`, JavaScript syntax, and Edge browser checks passed. Browser coverage
 includes input, preferences, presets, playlist selection, filters, batch
 submission, duplicate handling, queue controls and job actions, including the
-390px layout. The frozen Windows 1.0.0 executable smoke passed with the updated
+390px layout. The frozen Windows 1.0.1 executable smoke passed with the updated
 yt-dlp, bundled FFmpeg/ffprobe and Node; it verified MP3 conversion and ZIP
-export. The Android 1.0.0 APK/AAB were signed with the persistent Android
+export. The Android 1.0.1 APK/AAB were signed with the persistent Android
 keystore and signature-verified. Android Lint and API 36 emulator instrumentation
 passed with the updated yt-dlp/FastAPI/Uvicorn stack: the test launched the
 embedded backend, downloaded a local WAV, converted it to MP3, verified it with

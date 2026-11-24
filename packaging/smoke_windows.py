@@ -4,6 +4,7 @@ import json
 import functools
 import io
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -46,7 +47,13 @@ def main() -> int:
         from update_service import WINDOWS_SIGNER_THUMBPRINT, verify_windows_signature
 
         verify_windows_signature(executable, os.environ.get("WINDOWS_SIGN_CERT_THUMBPRINT", WINDOWS_SIGNER_THUMBPRINT))
-    requirements = Path(__file__).resolve().parents[1] / "requirements.txt"
+    project_root = Path(__file__).resolve().parents[1]
+    app_source = (project_root / "app.py").read_text(encoding="utf-8")
+    version_match = re.search(r'^APP_VERSION = "([^"]+)"$', app_source, re.MULTILINE)
+    if not version_match:
+        raise RuntimeError("Could not find APP_VERSION in app.py")
+    expected_version = version_match.group(1)
+    requirements = project_root / "requirements.txt"
     yt_dlp_pins = [
         entry.partition("==")[2].strip()
         for line in requirements.read_text(encoding="utf-8").splitlines()
@@ -86,7 +93,7 @@ def main() -> int:
                     time.sleep(0.5)
             if health is None:
                 raise RuntimeError("Frozen app did not start its local API")
-            if health.get("version") != "1.0.0":
+            if health.get("version") != expected_version:
                 raise RuntimeError(f"Unexpected version: {health.get('version')}")
             if health.get("yt_dlp") != expected_yt_dlp:
                 raise RuntimeError(f"Bundled yt-dlp is {health.get('yt_dlp')}, expected {expected_yt_dlp}")
@@ -125,7 +132,7 @@ def main() -> int:
             with urlopen(job_url + "/zip", timeout=20) as response, ZipFile(io.BytesIO(response.read())) as archive:
                 if not any(name.lower().endswith(".mp3") for name in archive.namelist()):
                     raise RuntimeError("Frozen ZIP export did not contain the converted media")
-            print(f"Frozen AllN1Downloader 1.0.0: yt-dlp {expected_yt_dlp}, local MP3 conversion, ffprobe, ZIP, static assets, isolated storage, FFmpeg and Node passed.")
+            print(f"Frozen AllN1Downloader {expected_version}: yt-dlp {expected_yt_dlp}, local MP3 conversion, ffprobe, ZIP, static assets, isolated storage, FFmpeg and Node passed.")
         finally:
             if process.poll() is None:
                 if os.name == "nt":
