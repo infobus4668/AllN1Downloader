@@ -14,15 +14,23 @@ const args = [
   '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--no-first-run',
   '--disable-background-networking', 'about:blank',
 ];
-const child = spawn(executable, args, {stdio:'ignore'});
+const child = spawn(executable, args, {stdio:['ignore','ignore','pipe']});
+let browserStderr = '';
+child.stderr.setEncoding('utf8');
+child.stderr.on('data', text => {
+  if (browserStderr.length < 8192) browserStderr += text;
+});
 let socket;
 async function until(check) {
   for (let i = 0; i < 100; i++) {
+    if (child.exitCode !== null) {
+      throw Error(`Browser exited (${child.exitCode}, ${child.signalCode}): ${browserStderr.trim() || 'no stderr'}`);
+    }
     const result = await check();
     if (result) return result;
     await sleep(100);
   }
-  throw Error('Browser readiness or UI assertion timed out');
+  throw Error(`Browser readiness or UI assertion timed out: ${browserStderr.trim() || 'no browser diagnostics'}`);
 }
 try {
   const port = await until(async () => (await readFile(join(profile, 'DevToolsActivePort'), 'utf8').catch(() => '')).split('\n')[0]);
