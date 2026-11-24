@@ -425,6 +425,16 @@ def probe_media(path: Path) -> Optional[Dict[str, Any]]:
         return None
     streams = payload.get("streams") or []
     container = payload.get("format") or {}
+    duration = safe_float(container.get("duration"))
+    if duration <= 0:
+        stream_durations = []
+        for stream in streams:
+            stream_duration = safe_float(stream.get("duration"))
+            if stream_duration <= 0:
+                stream_duration = safe_float(stream.get("duration_ts")) * (parse_fps(stream.get("time_base")) or 0.0)
+            if stream_duration > 0:
+                stream_durations.append(stream_duration)
+        duration = max(stream_durations, default=0.0)
     try:
         file_size = path.stat().st_size
     except OSError:
@@ -433,7 +443,7 @@ def probe_media(path: Path) -> Optional[Dict[str, Any]]:
     audio_stream = next((item for item in streams if item.get("codec_type") == "audio"), None)
     media: Dict[str, Any] = {
         "name": path.name,
-        "duration": round(safe_float(container.get("duration")), 3),
+        "duration": round(duration, 3),
         "size": safe_int(container.get("size"), file_size),
     }
     if video_stream:

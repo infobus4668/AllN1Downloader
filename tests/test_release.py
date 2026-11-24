@@ -37,9 +37,18 @@ class QueueTests(unittest.TestCase):
 
     def test_frozen_work_dir_is_persistent_and_user_writable(self):
         with patch.object(app.sys, 'frozen', True, create=True), patch.dict(
-            os.environ, {'ALLINONE_HOME': '', 'LOCALAPPDATA': str(self.home)}
+            os.environ, {
+                'ALLINONE_HOME': '',
+                'LOCALAPPDATA': str(self.home),
+                'XDG_DATA_HOME': str(self.home),
+            }
         ):
-            self.assertEqual(app.default_work_dir(), self.home / 'AllInOne')
+            expected_root = (
+                Path.home() / 'Library' / 'Application Support'
+                if sys.platform == 'darwin'
+                else self.home
+            )
+            self.assertEqual(app.default_work_dir(), expected_root / 'AllInOne')
         override = self.home / 'custom-data'
         with patch.dict(os.environ, {'ALLINONE_HOME': str(override)}):
             self.assertEqual(app.default_work_dir(), override)
@@ -202,6 +211,15 @@ class QueueTests(unittest.TestCase):
         self.assertIsNotNone(media)
         self.assertEqual(media['audio']['codec'], 'wav')
         self.assertGreater(media['duration'], 0.5)
+        stream_only = {
+            'streams': [{'codec_type': 'audio', 'codec_name': 'pcm_s16le', 'duration': '1.25'}],
+            'format': {'duration': 'N/A'},
+        }
+        with patch.object(app.subprocess, 'run', return_value=subprocess.CompletedProcess(
+            args=['ffprobe'], returncode=0, stdout=json.dumps(stream_only), stderr=''
+        )):
+            fallback = app.probe_media(path)
+        self.assertEqual(fallback['duration'], 1.25)
 
     def test_interrupted_export_closes_only_its_archive(self):
         job = app.Job('https://example.com/video', {})
@@ -326,8 +344,8 @@ class ReleaseSmoke(unittest.TestCase):
                     break
                 time.sleep(.1)
             self.assertEqual(clipped['status'], 'completed', clipped.get('error'))
-            self.assertGreater(clipped['media']['duration'], 0.9)
-            self.assertLess(clipped['media']['duration'], 2.4)
+            self.assertGreater(clipped['media']['duration'], 0.9, clipped['media'])
+            self.assertLess(clipped['media']['duration'], 2.4, clipped['media'])
         with running_app(home) as base:
             self.assertEqual(api(base, path)['status'], 'completed')
             self.assertEqual(api(base, clipped_path)['status'], 'completed')
