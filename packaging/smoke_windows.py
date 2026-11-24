@@ -101,7 +101,7 @@ def main() -> int:
                 raise RuntimeError("The local update-status endpoint did not report its test-only disabled state")
             if not health.get("ffmpeg") or health.get("js_runtime") != "node":
                 raise RuntimeError("The bundle did not detect its FFmpeg and Node runtimes")
-            if Path(health["download_dir"]) != Path(home) / "downloads":
+            if Path(health["download_dir"]).resolve() != (Path(home) / "downloads").resolve():
                 raise RuntimeError("Frozen app data was not written to the isolated user directory")
             with urlopen(base + "/", timeout=4) as response:
                 if b"AllN1Downloader" not in response.read():
