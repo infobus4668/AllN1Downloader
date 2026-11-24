@@ -56,6 +56,14 @@ try {
   await send('Page.navigate', {url:base});
   const health = await (await fetch(base + '/api/health')).json();
   await until(() => run(`document.querySelector('#versionInfo')?.textContent === ${JSON.stringify(`AllN1Downloader v${health.version}`)}`));
+  const appUpdateLabel = `[...settingsInfo.querySelectorAll('.info-row')]
+    .find(row => row.firstElementChild.textContent === 'App updates')?.lastElementChild.textContent`;
+  await run(`state.health={...state.health,update:{status:'checking',available:false}}; state.update=state.health.update; renderHealthInfo(state.health)`);
+  assert.equal(await run(appUpdateLabel), 'Checking…');
+  await run(`state.health={...state.health,update:{status:'current',available:false}}; state.update=state.health.update; renderHealthInfo(state.health)`);
+  assert.equal(await run(appUpdateLabel), 'Up to date');
+  await run('(async () => { await refreshUpdateStatus(); return true; })()');
+  assert.equal(await run(appUpdateLabel), 'Unavailable');
   const completed = await run(`(() => {
     const job = document.querySelector('.job[data-status="completed"]');
     return job ? {

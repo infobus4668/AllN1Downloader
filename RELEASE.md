@@ -170,7 +170,7 @@ profile, local WAV source and loopback ports. They don't clear the live queue
 or depend on YouTube. `.github/workflows/release-check.yml` runs the suite on
 Ubuntu when enabled in a GitHub repository.
 
-**Evidence on this release:** all nineteen tests passed on Python 3.12.16;
+**Evidence on this release:** all twenty tests passed on Python 3.12.16;
 `pip check`, JavaScript syntax, and Edge browser checks passed. Browser coverage
 includes input, preferences, presets, playlist selection, filters, batch
 submission, duplicate handling, queue controls and job actions, including the

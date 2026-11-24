@@ -99,6 +99,25 @@ class QueueTests(unittest.TestCase):
         with patch.dict(os.environ, {'ALLINONE_HOME': str(override)}):
             self.assertEqual(app.default_work_dir(), override)
 
+    def test_android_update_check_queries_the_release_feed(self):
+        release = {
+            'status': 'current',
+            'current_version': app.APP_VERSION,
+            'latest_version': app.APP_VERSION,
+            'available': False,
+            'release_url': 'https://github.com/infobus4668/AllN1Downloader/releases/latest',
+            'asset_name': '',
+            'asset_url': '',
+            'asset_digest': '',
+        }
+        with patch.object(app, 'ANDROID_MODE', True), \
+             patch.dict(app.UPDATE_STATE, {'status': 'checking'}), \
+             patch.object(app.update_service, 'fetch_latest_release', return_value=release) as fetch:
+            app.check_for_application_updates()
+            fetch.assert_called_once_with(app.UPDATE_REPOSITORY, app.APP_VERSION, 'android')
+            self.assertEqual(app.update_snapshot()['status'], 'current')
+            self.assertEqual(app.update_snapshot()['platform'], 'android')
+
     def test_cancel_then_retry_runs_one_attempt(self):
         # Hold the only worker so cancellation deterministically precedes pickup.
         release = threading.Event()

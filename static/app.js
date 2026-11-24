@@ -148,6 +148,7 @@ const state = {
   platform: "desktop",
   distribution: "source",
   update: null,
+  health: null,
 };
 
 let settings = loadSettings();
@@ -1528,6 +1529,7 @@ function renderHealthInfo(health) {
 async function loadHealth() {
   try {
     const health = await api("/api/health");
+    state.health = health;
     state.platform = health.platform || "desktop";
     state.distribution = health.distribution || "source";
     state.update = health.update || null;
@@ -1561,6 +1563,7 @@ async function loadHealth() {
       : "";
     renderHealthInfo(health);
   } catch {
+    state.health = null;
     engineBadge.classList.remove("ok");
     engineBadge.classList.add("warn");
     engineText.textContent = "engine offline";
@@ -1585,6 +1588,10 @@ function renderUpdateButton() {
 async function refreshUpdateStatus() {
   try {
     state.update = await api("/api/update");
+    if (state.health) {
+      state.health = { ...state.health, update: state.update };
+      renderHealthInfo(state.health);
+    }
     renderUpdateButton();
     if (state.update.status === "checking") setTimeout(refreshUpdateStatus, 2500);
   } catch {

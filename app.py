@@ -998,9 +998,7 @@ def update_snapshot() -> Dict[str, Any]:
 
 
 def check_for_application_updates() -> None:
-    if ANDROID_MODE:
-        return
-    platform = "windows" if os.name == "nt" else "linux"
+    platform = "android" if ANDROID_MODE else "windows" if os.name == "nt" else "linux"
     try:
         update = update_service.fetch_latest_release(UPDATE_REPOSITORY, APP_VERSION, platform)
         if update.get("available") and platform == "windows" and getattr(sys, "frozen", False):
