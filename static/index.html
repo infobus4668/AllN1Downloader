@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f3f6fb">
+<title>AllN1Downloader — Media Downloader</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%236d5efc'/%3E%3Cstop offset='1' stop-color='%2322d3ee'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='url(%23g)'/%3E%3Cpath d='M32 14v25m0 0 10-10m-10 10L22 29M18 46h28' stroke='white' stroke-width='5' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="backdrop" aria-hidden="true">
+  <div class="orb orb-a"></div>
+  <div class="orb orb-b"></div>
+  <div class="grid-overlay"></div>
+</div>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 4v11m0 0 4.5-4.5M12 15l-4.5-4.5M5 19h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </span>
+    <div class="brand-text">
+      <strong>AllN1Downloader</strong>
+      <span>media downloader</span>
+    </div>
+  </div>
+  <div class="top-actions">
+    <div class="engine" id="engineBadge" title="Engine status">
+      <span class="dot"></span>
+      <span id="engineText">checking engine…</span>
+    </div>
+    <button type="button" class="btn tiny ghost hidden" id="updateBtn" aria-label="Install app update"></button>
+    <button type="button" class="icon-btn" id="settingsBtn" aria-label="Preferences" title="Preferences" aria-haspopup="dialog" aria-controls="settingsPanel">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="3.4" stroke="currentColor" stroke-width="1.8"/>
+        <path d="M19.5 14.2a1.8 1.8 0 0 0 .36 2l.05.05a2.1 2.1 0 1 1-2.97 2.97l-.05-.05a1.8 1.8 0 0 0-2-.36 1.8 1.8 0 0 0-1.09 1.65V21a2.1 2.1 0 1 1-4.2 0v-.09a1.8 1.8 0 0 0-1.18-1.65 1.8 1.8 0 0 0-2 .36l-.05.05a2.1 2.1 0 1 1-2.97-2.97l.05-.05a1.8 1.8 0 0 0 .36-2 1.8 1.8 0 0 0-1.65-1.09H3a2.1 2.1 0 1 1 0-4.2h.09a1.8 1.8 0 0 0 1.65-1.18 1.8 1.8 0 0 0-.36-2l-.05-.05a2.1 2.1 0 1 1 2.97-2.97l.05.05a1.8 1.8 0 0 0 2 .36h.01a1.8 1.8 0 0 0 1.09-1.65V3a2.1 2.1 0 1 1 4.2 0v.09a1.8 1.8 0 0 0 1.09 1.65 1.8 1.8 0 0 0 2-.36l.05-.05a2.1 2.1 0 1 1 2.97 2.97l-.05.05a1.8 1.8 0 0 0-.36 2v.01a1.8 1.8 0 0 0 1.65 1.09H21a2.1 2.1 0 1 1 0 4.2h-.09a1.8 1.8 0 0 0-1.65 1.09Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<dialog class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
+  <div class="settings-head">
+    <strong id="settingsTitle">Preferences</strong>
+    <button type="button" class="icon-btn small" id="closeSettings" aria-label="Close preferences" autofocus>×</button>
+  </div>
+  <div class="setting-block">
+    <span class="opt-label">Accent color</span>
+    <div class="swatches" id="swatches">
+      <button type="button" class="swatch" data-theme="violet" title="Violet" aria-label="Violet"></button>
+      <button type="button" class="swatch" data-theme="cyan" title="Cyan" aria-label="Cyan"></button>
+      <button type="button" class="swatch" data-theme="emerald" title="Emerald" aria-label="Emerald"></button>
+      <button type="button" class="swatch" data-theme="rose" title="Rose" aria-label="Rose"></button>
+      <button type="button" class="swatch" data-theme="amber" title="Amber" aria-label="Amber"></button>
+    </div>
+  </div>
+  <label class="check setting-check" id="notifyLabel">
+    <input type="checkbox" id="notifyCheck">
+    <span>Desktop notifications when downloads finish</span>
+  </label>
+  <div class="info-list" id="settingsInfo"></div>
+</dialog>
+
+<main class="shell">
+  <section class="hero">
+    <div class="hero-intro">
+      <span class="hero-kicker"><span class="kicker-dot"></span> A simpler way to save media</span>
+      <span class="privacy-note">Your downloads stay on this device</span>
+    </div>
+    <h1>Videos and audio,<br><span class="grad">ready when you are.</span></h1>
+    <p class="lede">Paste a link, choose what you want, and download. AllN1Downloader takes care of the format details.</p>
+    <ol class="how-steps" aria-label="How downloading works">
+      <li><span>1</span>Paste a link</li>
+      <li><span>2</span>Choose video or audio</li>
+      <li><span>3</span>Download</li>
+    </ol>
+
+    <div class="source-tabs" id="sourceTabs" role="tablist" aria-label="Input mode">
+      <button type="button" class="source-tab active" data-source="single" role="tab" aria-selected="true">Single link</button>
+      <button type="button" class="source-tab" data-source="batch" role="tab" aria-selected="false">Batch links</button>
+    </div>
+
+    <form class="url-box" id="analyzeForm" autocomplete="off">
+      <svg class="url-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07L11.4 4.53" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07l1.41-1.41" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+      <input id="urlInput" type="text" inputmode="url" aria-describedby="analysisStatus" placeholder="Paste a video or playlist link…" spellcheck="false" aria-label="Media URL">
+      <button type="button" class="btn ghost" id="pasteBtn">Paste</button>
+      <button type="submit" class="btn primary" id="analyzeBtn"><span>Analyze</span></button>
+    </form>
+    <p class="form-feedback" id="analysisStatus" role="status"></p>
+
+    <div class="batch-box hidden" id="batchBox">
+      <textarea id="batchInput" placeholder="Paste multiple links here — one per line (max 50)…" spellcheck="false" aria-label="Batch links"></textarea>
+      <div class="batch-options">
+        <div class="select-wrap">
+          <select id="batchMode" aria-label="Batch download type">
+            <option value="video">Video</option>
+            <option value="audio">Audio only</option>
+          </select>
+        </div>
+        <div class="select-wrap" id="batchQualityWrap">
+          <select id="batchQuality" aria-label="Batch quality">
+            <option value="best">Best available</option>
+            <option value="4320">4320p · 8K</option>
+            <option value="2160">2160p · 4K</option>
+            <option value="1440">1440p · 2K</option>
+            <option value="1080">1080p · Full HD</option>
+            <option value="720">720p · HD</option>
+            <option value="480">480p</option>
+            <option value="360">360p</option>
+            <option value="240">240p</option>
+            <option value="144">144p</option>
+          </select>
+        </div>
+        <div class="select-wrap">
+          <select id="batchFormat" aria-label="Batch format"></select>
+        </div>
+        <button type="button" class="btn primary" id="batchBtn">Queue all</button>
+      </div>
+      <div class="hint">Use one link per line, up to 50 distinct links. Playlist links download in full.</div>
+      <p class="form-feedback" id="batchStatus" role="status"></p>
+    </div>
+
+    <details class="connection-options">
+      <summary>Connection settings</summary>
+      <div class="advanced-grid">
+        <div id="cookiesControl"><label class="opt-label" for="cookiesSelect">Cookies from browser</label>
+          <div class="select-wrap"><select id="cookiesSelect">
+            <option value="">Off</option><option value="chrome">Chrome</option><option value="edge">Edge</option><option value="firefox">Firefox</option><option value="brave">Brave</option><option value="opera">Opera</option><option value="vivaldi">Vivaldi</option><option value="chromium">Chromium</option><option value="safari">Safari</option>
+          </select></div></div>
+        <div><label class="opt-label" for="proxyInput">HTTP(S) or SOCKS proxy</label><input class="text-input" id="proxyInput" placeholder="Leave blank for a direct connection" spellcheck="false"></div>
+      </div>
+      <p class="hint" id="connectionHint">Applies to analysis and downloads. Choose your signed-in browser only if the source requires it.</p>
+    </details>
+  </section>
+
+  <section class="card media hidden" id="mediaCard">
+    <div class="media-grid">
+      <div class="thumb-wrap" id="thumbWrap">
+        <img id="mediaThumb" alt="Media thumbnail" loading="lazy">
+        <span class="duration hidden" id="mediaDuration"></span>
+      </div>
+      <div class="media-info">
+        <div class="chips" id="mediaChips"></div>
+        <h2 id="mediaTitle"></h2>
+        <div class="media-meta" id="mediaMeta"></div>
+
+        <div class="options">
+          <div class="opt-group">
+            <span class="opt-label">Download type</span>
+            <div class="segmented" id="modeSwitch" role="tablist" aria-label="Download type">
+              <button type="button" class="seg active" data-mode="video" role="tab" aria-selected="true">Video</button>
+              <button type="button" class="seg" data-mode="audio" role="tab" aria-selected="false">Audio only</button>
+            </div>
+          </div>
+          <div class="preset-row">
+            <span class="opt-label">Quick preset</span>
+            <div class="preset-buttons" id="presetButtons" aria-label="Download presets"></div>
+          </div>
+          <div class="opt-row">
+            <div class="opt-group" id="qualityGroup">
+              <label class="opt-label" for="qualitySelect">Quality</label>
+              <div class="select-wrap">
+                <select id="qualitySelect"></select>
+              </div>
+            </div>
+            <div class="opt-group" id="codecGroup">
+              <label class="opt-label" for="codecSelect">Video codec</label>
+              <div class="select-wrap">
+                <select id="codecSelect"></select>
+              </div>
+            </div>
+          </div>
+          <div class="opt-row">
+            <div class="opt-group">
+              <label class="opt-label" for="formatSelect">Format</label>
+              <div class="select-wrap">
+                <select id="formatSelect"></select>
+              </div>
+            </div>
+            <div class="opt-group hidden" id="bitrateGroup">
+              <label class="opt-label" for="bitrateSelect">Audio bitrate</label>
+              <div class="select-wrap">
+                <select id="bitrateSelect"></select>
+              </div>
+            </div>
+          </div>
+          <div class="estimate" id="estimateLine"></div>
+          <div class="expected" id="expectedLine"></div>
+          <div class="check-row">
+            <label class="check" id="subsToggle">
+              <input type="checkbox" id="subsCheck">
+              <span>Subtitles (SRT)</span>
+            </label>
+            <div class="select-wrap small hidden" id="subLangWrap">
+              <select id="subLangSelect" aria-label="Subtitle language">
+                <option value="en">English</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+                <option value="de">German</option>
+                <option value="pt">Portuguese</option>
+                <option value="hi">Hindi</option>
+                <option value="ar">Arabic</option>
+                <option value="ru">Russian</option>
+                <option value="ja">Japanese</option>
+                <option value="ko">Korean</option>
+                <option value="zh">Chinese</option>
+                <option value="all">All available</option>
+              </select>
+            </div>
+            <label class="check" id="embedWrap">
+              <input type="checkbox" id="embedCheck">
+              <span>Embed thumbnail</span>
+            </label>
+          </div>
+          <details class="advanced" id="clipDetails">
+            <summary>Clip a section</summary>
+            <div class="advanced-body">
+              <div class="advanced-grid">
+                <div class="opt-group">
+                  <label class="opt-label" for="clipStart">Start</label>
+                  <input class="text-input" id="clipStart" placeholder="00:00" inputmode="numeric" spellcheck="false">
+                </div>
+                <div class="opt-group">
+                  <label class="opt-label" for="clipEnd">End</label>
+                  <input class="text-input" id="clipEnd" placeholder="End of media" inputmode="numeric" spellcheck="false">
+                </div>
+              </div>
+              <label class="check" id="clipPreciseWrap">
+                <input type="checkbox" id="clipPrecise">
+                <span>Frame-accurate video cut (slower, re-encodes)</span>
+              </label>
+              <p class="hint">Use seconds, mm:ss, or hh:mm:ss. Fast cuts copy streams; precise video cuts re-encode. Audio is stream-copied, and subtitles are not trimmed.</p>
+            </div>
+          </details>
+          <details class="advanced">
+            <summary>Advanced</summary>
+            <div class="advanced-body">
+              <div class="advanced-grid">
+                <div class="opt-group">
+                  <label class="opt-label" for="ratelimitSelect">Speed limit</label>
+                  <div class="select-wrap">
+                    <select id="ratelimitSelect">
+                      <option value="">Unlimited</option>
+                      <option value="524288">512 KB/s</option>
+                      <option value="1048576">1 MB/s</option>
+                      <option value="2097152">2 MB/s</option>
+                      <option value="5242880">5 MB/s</option>
+                      <option value="10485760">10 MB/s</option>
+                    </select>
+                  </div>
+                </div>
+                <label class="check span-2">
+                  <input type="checkbox" id="sponsorCheck">
+                  <span>Skip sponsor segments (SponsorBlock)</span>
+                </label>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="playlist hidden" id="playlistBox">
+          <div class="playlist-head">
+            <label class="check">
+              <input type="checkbox" id="selectAll" checked>
+              <span>Playlist items <b id="plCount"></b></span>
+            </label>
+            <button type="button" class="btn tiny ghost" id="invertBtn">Invert</button>
+          </div>
+          <div class="playlist-tools">
+            <input class="text-input" id="plSearch" type="text" placeholder="Filter playlist items…" spellcheck="false" aria-label="Filter playlist items">
+          </div>
+          <div class="playlist-list" id="playlistList"></div>
+          <div class="playlist-note hidden" id="plNote"></div>
+        </div>
+
+        <button type="button" class="btn primary big" id="downloadBtn">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 4v11m0 0 4.5-4.5M12 15l-4.5-4.5M5 19h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span id="downloadBtnText">Download</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section class="queue">
+    <div class="queue-head">
+      <div class="queue-title">
+        <h3>Downloads <span class="count hidden" id="queueCount"></span></h3>
+        <span class="queue-summary" id="queueSummary"></span>
+      </div>
+      <div class="queue-tools">
+        <div class="filters" id="filters" role="tablist" aria-label="Filter downloads">
+          <button type="button" class="filter active" data-filter="all" role="tab" aria-selected="true">All</button>
+          <button type="button" class="filter" data-filter="active" role="tab" aria-selected="false">Active</button>
+          <button type="button" class="filter" data-filter="done" role="tab" aria-selected="false">Done</button>
+          <button type="button" class="filter" data-filter="failed" role="tab" aria-selected="false">Failed</button>
+        </div>
+        <input class="text-input queue-search" id="queueSearch" type="search" placeholder="Search downloads…" aria-label="Search downloads">
+        <button type="button" class="btn tiny ghost hidden" id="retryFailedBtn">Retry failed</button>
+        <button type="button" class="btn tiny ghost" id="openDownloadsBtn">Open downloads folder</button>
+        <button type="button" class="btn tiny ghost" id="clearBtn">Clear finished</button>
+      </div>
+    </div>
+    <div class="job-list" id="jobList"></div>
+    <div class="empty" id="emptyQueue">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M4 16.5V19a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2.5M12 3v12m0 0 4-4m-4 4-4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <p id="emptyTitle">Nothing here yet</p>
+      <span id="emptyText">Analyze a link above and your downloads will appear here.</span>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <span id="versionInfo">AllN1Downloader</span>
+    <span id="diskInfo"></span>
+    <span>Download only content you have the rights to.</span>
+  </footer>
+</main>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<div class="drop-overlay" id="dropOverlay"><div>Drop a link to analyze</div></div>
+
+<template id="jobTpl">
+  <article class="job">
+    <div class="job-media">
+      <img class="job-thumb" data-field="thumb" alt="" loading="lazy">
+      <div class="job-icon" data-field="icon">↓</div>
+    </div>
+    <div class="job-content">
+      <div class="job-top">
+        <div class="job-heading">
+          <span class="job-title" data-field="title"></span>
+          <span class="tag" data-field="tag"></span>
+        </div>
+        <span class="status-pill" data-field="status"></span>
+      </div>
+      <div class="job-sub" data-field="sub"></div>
+      <div class="progress"><div class="progress-fill" data-field="fill"></div></div>
+      <div class="job-stats" data-field="stats"></div>
+      <div class="job-files" data-field="files"></div>
+      <div class="job-actions">
+        <button type="button" class="mini danger" data-action="cancel">Cancel</button>
+        <button type="button" class="mini" data-action="retry">Retry</button>
+        <a class="mini accent" data-action="save" download>Save file</a>
+        <a class="mini accent" data-action="zip" download>Download ZIP</a>
+        <button type="button" class="mini" data-action="open-file">Open file</button>
+        <button type="button" class="mini" data-action="open">Open folder</button>
+        <button type="button" class="mini" data-action="copy">Copy path</button>
+        <button type="button" class="mini" data-action="logs">Logs</button>
+        <button type="button" class="mini" data-action="forget">Remove from history</button>
+        <button type="button" class="mini danger" data-action="delete">Delete files</button>
+      </div>
+      <div class="job-logs hidden" data-field="logsWrap"><pre data-field="logs"></pre></div>
+    </div>
+  </article>
+</template>
+
+<script src="/static/app.js" defer></script>
+</body>
+</html>

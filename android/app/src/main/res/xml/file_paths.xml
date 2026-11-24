@@ -1,0 +1,5 @@
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Preserve access to files created by the original AllInOne application ID. -->
+    <files-path name="allinone_downloads" path="AllInOne/downloads/" />
+    <files-path name="alln1_update_apks" path="updates/" />
+</paths>

@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">AllN1Downloader</string>
+    <string name="startup_text">Starting AllN1Downloader on this device…</string>
+    <string name="startup_error">AllN1Downloader could not start.
+
+%1$s</string>
+    <string name="startup_failed_toast">Local downloader startup failed</string>
+</resources>

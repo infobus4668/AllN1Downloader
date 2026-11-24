@@ -1,0 +1,86 @@
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: tuesday
+      time: "06:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      python-runtime:
+        patterns:
+          - "*"
+
+  - package-ecosystem: pip
+    directory: "/android/app"
+    schedule:
+      interval: weekly
+      day: tuesday
+      time: "06:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    commit-message:
+      prefix: "chore(deps-android)"
+    groups:
+      android-python-runtime:
+        patterns:
+          - "*"
+
+  - package-ecosystem: pip
+    directory: "/packaging"
+    schedule:
+      interval: weekly
+      day: tuesday
+      time: "06:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+    commit-message:
+      prefix: "chore(deps-build)"
+    groups:
+      packaging-tools:
+        patterns:
+          - "*"
+
+  - package-ecosystem: gradle
+    directory: "/android"
+    schedule:
+      interval: weekly
+      day: tuesday
+      time: "06:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    commit-message:
+      prefix: "chore(deps-android)"
+    groups:
+      android-gradle-dependencies:
+        patterns:
+          - "*"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: tuesday
+      time: "06:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    commit-message:
+      prefix: "chore(deps-actions)"
+    groups:
+      github-actions:
+        patterns:
+          - "*"

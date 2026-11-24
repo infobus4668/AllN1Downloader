@@ -1,0 +1,142 @@
+name: Build, sign and publish AllN1Downloader release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+jobs:
+  android:
+    uses: ./.github/workflows/android-apk.yml
+    secrets: inherit
+  desktop:
+    uses: ./.github/workflows/package-desktop.yml
+    secrets: inherit
+  publish:
+    needs: [android, desktop]
+    runs-on: ubuntu-22.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: alln1downloader-android-signed-release
+          path: incoming/android
+      - uses: actions/download-artifact@v4
+        with:
+          name: alln1downloader-windows-exe
+          path: incoming/windows
+      - uses: actions/download-artifact@v4
+        with:
+          name: alln1downloader-deb-amd64
+          path: incoming/debian
+      - name: Prepare release assets and metadata
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          mkdir -p release-assets apt-site/apt/pool/main apt-site/apt/dists/stable/main/binary-amd64
+          cp incoming/android/app-release.apk release-assets/AllN1Downloader-Android.apk
+          cp incoming/android/app-release.aab release-assets/AllN1Downloader-Android.aab
+          cp incoming/windows/AllN1Downloader.exe release-assets/AllN1Downloader-Windows-x64.exe
+          cp incoming/debian/*.deb incoming/debian/*.deb.asc incoming/debian/SHA256SUMS* release-assets/
+          cp incoming/debian/*.deb apt-site/apt/pool/main/
+          cp packaging/apt/alln1downloader-archive-keyring.asc release-assets/AllN1Downloader-Debian-Signing-Key.asc
+          expected="v$(sed -n 's/^APP_VERSION = "\([^"]*\)"/\1/p' app.py | head -n 1)"
+          test "$RELEASE_TAG" = "$expected"
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          files = sorted(p for p in Path("release-assets").iterdir() if p.is_file())
+          gradle = Path("android/app/build.gradle.kts").read_text(encoding="utf-8")
+          package_name = re.search(r'applicationId\s*=\s*"([^"]+)"', gradle).group(1)
+          version_code = int(re.search(r"versionCode\s*=\s*(\d+)", gradle).group(1))
+          version_name = re.search(r'versionName\s*=\s*"([^"]+)"', gradle).group(1)
+          app_version = Path("app.py").read_text(encoding="utf-8")
+          app_version = re.search(r'APP_VERSION\s*=\s*"([^"]+)"', app_version).group(1)
+          if app_version != os.environ["RELEASE_TAG"].removeprefix("v") or version_name != app_version:
+              raise SystemExit("Release tag, app.py version and Android versionName must match")
+          manifest = {
+              "product": "AllN1Downloader",
+              "tag": os.environ["RELEASE_TAG"],
+              "version": app_version,
+              "android": {"application_id": package_name, "version_code": version_code, "version_name": version_name},
+              "assets": [{"name": p.name, "size": p.stat().st_size,
+                          "sha256": hashlib.sha256(p.read_bytes()).hexdigest()} for p in files],
+          }
+          Path("release-assets/AllN1Downloader-update-manifest.json").write_text(
+              json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+          PY
+      - name: Prepare signed APT repository
+        env:
+          DEB_SIGNING_KEY_BASE64: ${{ secrets.DEB_SIGNING_KEY_BASE64 }}
+          DEB_SIGNING_KEY_ID: ${{ secrets.DEB_SIGNING_KEY_ID }}
+          DEB_SIGNING_PASSPHRASE: ${{ secrets.DEB_SIGNING_PASSPHRASE }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y apt-utils dpkg-dev gnupg
+          export GNUPGHOME="$RUNNER_TEMP/alln1-apt-keyring"
+          mkdir -m 700 -p "$GNUPGHOME"
+          printf '%s' "$DEB_SIGNING_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/alln1-private.asc"
+          gpg --batch --import "$RUNNER_TEMP/alln1-private.asc"
+          fingerprint="$DEB_SIGNING_KEY_ID"
+          expected_fingerprint=$(gpg --batch --show-keys --with-colons packaging/apt/alln1downloader-archive-keyring.asc | awk -F: '$1 == "fpr" { print $10; exit }')
+          imported_fingerprint=$(gpg --batch --with-colons --fingerprint "$fingerprint" | awk -F: '$1 == "fpr" { print $10; exit }')
+          test "$imported_fingerprint" = "$expected_fingerprint"
+          (cd apt-site/apt && dpkg-scanpackages --arch amd64 pool/main /dev/null > dists/stable/main/binary-amd64/Packages)
+          gzip -9 -k apt-site/apt/dists/stable/main/binary-amd64/Packages
+          cat > "$RUNNER_TEMP/apt-release.conf" <<'EOF'
+          APT::FTPArchive::Release::Origin "AllN1Downloader";
+          APT::FTPArchive::Release::Label "AllN1Downloader";
+          APT::FTPArchive::Release::Suite "stable";
+          APT::FTPArchive::Release::Codename "stable";
+          APT::FTPArchive::Release::Architectures "amd64";
+          APT::FTPArchive::Release::Components "main";
+          APT::FTPArchive::Release::Description "AllN1Downloader signed package repository";
+          EOF
+          (cd apt-site/apt && apt-ftparchive -c "$RUNNER_TEMP/apt-release.conf" release dists/stable > dists/stable/Release)
+          printf '%s\n' "$DEB_SIGNING_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --local-user "$fingerprint" --clearsign --output apt-site/apt/dists/stable/InRelease apt-site/apt/dists/stable/Release
+          printf '%s\n' "$DEB_SIGNING_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --local-user "$fingerprint" --detach-sign --output apt-site/apt/dists/stable/Release.gpg apt-site/apt/dists/stable/Release
+          printf '%s' "$DEB_SIGNING_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --local-user "$fingerprint" --armor --detach-sign --output release-assets/AllN1Downloader-update-manifest.json.asc \
+            release-assets/AllN1Downloader-update-manifest.json
+          (cd release-assets && sha256sum -- AllN1Downloader-Windows-x64.exe AllN1Downloader-Android.apk \
+            AllN1Downloader-Android.aab *.deb > ALL_ASSETS_SHA256SUMS)
+          printf '%s\n' "$DEB_SIGNING_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --local-user "$fingerprint" --armor --detach-sign --output release-assets/ALL_ASSETS_SHA256SUMS.asc \
+            release-assets/ALL_ASSETS_SHA256SUMS
+          gpg --batch --yes --armor --output apt-site/apt/AllN1Downloader-Debian-Signing-Key.asc --export "$fingerprint"
+          gpg --homedir "$GNUPGHOME" --batch --verify apt-site/apt/dists/stable/InRelease
+          gpg --homedir "$GNUPGHOME" --batch --verify release-assets/AllN1Downloader-update-manifest.json.asc release-assets/AllN1Downloader-update-manifest.json
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apt-site
+      - uses: actions/deploy-pages@v4
+        id: deployment
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: AllN1Downloader ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            release-assets/AllN1Downloader-Windows-x64.exe
+            release-assets/AllN1Downloader-Android.apk
+            release-assets/AllN1Downloader-Android.aab
+            release-assets/AllN1Downloader-Debian-Signing-Key.asc
+            release-assets/AllN1Downloader-update-manifest.json
+            release-assets/AllN1Downloader-update-manifest.json.asc
+            release-assets/alln1downloader_*.deb
+            release-assets/*.deb.asc
+            release-assets/SHA256SUMS
+            release-assets/SHA256SUMS.asc
+            release-assets/ALL_ASSETS_SHA256SUMS*
+          fail_on_unmatched_files: true

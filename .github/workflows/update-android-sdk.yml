@@ -1,0 +1,56 @@
+name: Check Android SDK toolchain updates
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 7 * * 5'
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: android-actions/setup-android@v3
+      - name: Find newer stable SDK packages
+        id: sdk
+        run: python scripts/update_android_sdk_pins.py
+      - name: Install pinned Android SDK packages
+        if: steps.sdk.outputs.changed == 'true'
+        run: |
+          build_tools=$(cat android/build-tools-version.txt)
+          ndk_version=$(cat android/ndk-version.txt)
+          sdkmanager --install 'platforms/android-37.0' "build-tools/$build_tools" "ndk/$ndk_version" 'emulator' 'system-images/android-36/google_apis/x86_64'
+      - uses: gradle/actions/setup-gradle@v4
+        if: steps.sdk.outputs.changed == 'true'
+      - name: Build, lint and test against updated SDKs
+        if: steps.sdk.outputs.changed == 'true'
+        run: bash android/gradlew -p android --no-daemon assembleDebug assembleDebugAndroidTest lintDebug -PchaquopyBuildPython=python
+      - uses: reactivecircus/android-emulator-runner@v2
+        if: steps.sdk.outputs.changed == 'true'
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: bash android/gradlew -p android --no-daemon connectedDebugAndroidTest -PchaquopyBuildPython=python
+      - uses: peter-evans/create-pull-request@v7
+        if: steps.sdk.outputs.changed == 'true'
+        with:
+          token: ${{ github.token }}
+          branch: automation/android-sdk-updates
+          delete-branch: true
+          commit-message: 'chore(deps-android): update Android SDK toolchain'
+          title: 'chore(deps-android): update Android SDK toolchain'
+          body: |
+            Automated stable Android build-tools and NDK update.
+
+            The Android debug build, lint, and API 36 emulator instrumentation tests passed before this pull request was opened.

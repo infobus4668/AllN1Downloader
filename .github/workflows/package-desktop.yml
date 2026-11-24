@@ -1,0 +1,74 @@
+name: Build desktop packages
+on:
+  workflow_dispatch:
+  workflow_call:
+  pull_request:
+    paths:
+      - app.py
+      - requirements.txt
+      - static/**
+      - packaging/**
+      - .github/workflows/package-desktop.yml
+permissions:
+  contents: read
+jobs:
+  windows-exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -r requirements.txt -r packaging/requirements-build.txt
+      - shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP 'ffmpeg.zip'
+          $extract = Join-Path $env:RUNNER_TEMP 'ffmpeg'
+          Invoke-WebRequest 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip' -OutFile $archive
+          Expand-Archive -LiteralPath $archive -DestinationPath $extract
+          $bin = (Get-ChildItem -Path $extract -Filter ffmpeg.exe -Recurse | Select-Object -First 1).Directory.FullName
+          if (-not $bin -or -not (Test-Path (Join-Path $bin 'ffprobe.exe'))) { throw 'FFmpeg archive missing expected binaries.' }
+          "FFMPEG_DIR=$bin" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - shell: pwsh
+        run: ./packaging/build_windows.ps1
+        env:
+          WINDOWS_SIGN_PFX_BASE64: ${{ secrets.WINDOWS_SIGN_PFX_BASE64 }}
+          WINDOWS_SIGN_PASSWORD: ${{ secrets.WINDOWS_SIGN_PASSWORD }}
+          WINDOWS_SIGN_ALLOW_SELF_SIGNED: '1'
+          WINDOWS_SIGN_CERT_THUMBPRINT: 9F1BFF66846716DC3E579D9F61E7A412D36E6336
+          REQUIRE_WINDOWS_SIGNING: ${{ startsWith(github.ref, 'refs/tags/') && '1' || '0' }}
+      - run: python packaging/smoke_windows.py dist/AllN1Downloader.exe
+        env:
+          VERIFY_WINDOWS_SIGNATURE: ${{ startsWith(github.ref, 'refs/tags/') && '1' || '0' }}
+          WINDOWS_SIGN_CERT_THUMBPRINT: 9F1BFF66846716DC3E579D9F61E7A412D36E6336
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alln1downloader-windows-exe
+          path: dist/AllN1Downloader.exe
+          if-no-files-found: error
+  deb:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg xdg-utils dpkg-dev gnupg
+      - run: python -m pip install -r requirements.txt -r packaging/requirements-build.txt
+      - run: bash packaging/build_linux.sh
+        env:
+          DEB_SIGNING_KEY_BASE64: ${{ secrets.DEB_SIGNING_KEY_BASE64 }}
+          DEB_SIGNING_KEY_ID: ${{ secrets.DEB_SIGNING_KEY_ID }}
+          DEB_SIGNING_PASSPHRASE: ${{ secrets.DEB_SIGNING_PASSPHRASE }}
+          REQUIRE_DEB_SIGNING: ${{ startsWith(github.ref, 'refs/tags/') && '1' || '0' }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alln1downloader-deb-amd64
+          path: |
+            dist/*.deb
+            dist/*.deb.asc
+            dist/SHA256SUMS*
+          if-no-files-found: error
