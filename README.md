@@ -147,8 +147,8 @@ outside the application bundle. The existing `AllInOne` data folder and
   The Android module is GPL-3.0; its license and third-party notices are bundled
   in the APK. Release APKs need signing with the publisher's own key.
 - The Android workflow builds a debug APK and compiles the instrumentation test.
-  Set the repository variable `ANDROID_EMULATOR_TESTS=true` and use a runner with
-  emulator hardware acceleration to run the API 36 smoke test; the current
+  Set `ANDROID_EMULATOR_TESTS=true` and `ANDROID_RUNNER` to a Linux runner label
+  with emulator hardware acceleration to run the API 36 smoke test; the current
   hosted runner could not boot its software-only emulator.
 
 ### Publisher signing
