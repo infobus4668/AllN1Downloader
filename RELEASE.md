@@ -1,5 +1,14 @@
 # AllN1Downloader — release and update guide
 
+## 1.0.3 changes
+
+- Instagram-style media formats stay selectable even if the source does not
+  report the codec or resolution. Select **Best available** for unknown resolutions.
+- **Connection settings → Cookies file** accepts a Netscape `cookies.txt` export
+  on desktop and Android. Cookie contents are kept in memory, not in saved settings
+  or job history. Select the file again after restarting the app.
+- Browser-cookie load errors now explain how to retry or use a cookie file instead.
+
 ## 1.0.2 changes
 
 - Update checks validate the expected repository, release tag and package name.

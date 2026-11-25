@@ -99,6 +99,43 @@ class QueueTests(unittest.TestCase):
         with patch.dict(os.environ, {'ALLINONE_HOME': str(override)}):
             self.assertEqual(app.default_work_dir(), override)
 
+    def test_instagram_video_without_codec_metadata_still_has_quality_choices(self):
+        with patch.object(app.yt_dlp.YoutubeDL, 'extract_info', return_value={
+            'extractor_key': 'Instagram', 'formats': [
+                {'ext': 'mp4', 'height': 720}, {'ext': 'mp4'},
+                {'ext': 'm4a', 'vcodec': 'none', 'acodec': 'aac'},
+            ],
+        }):
+            info = app.get_info(app.InfoRequest(url='https://www.instagram.com/reel/example/'))
+        self.assertEqual(info['heights'], [720])
+        self.assertEqual([quality['height'] for quality in info['qualities']], [720, 0])
+        self.assertFalse(info['audio_only'])
+        with app.yt_dlp.YoutubeDL({'format': app.build_format('video', 'best', 'mp4'), 'quiet': True}) as ydl:
+            result = ydl.process_ie_result({
+                'id': 'reel', 'title': 'Reel', 'formats': [{
+                    'format_id': 'direct', 'url': 'https://example.com/reel.mp4', 'ext': 'mp4',
+                }],
+            }, download=False)
+        self.assertEqual(result['format_id'], 'direct')
+
+    def test_cookie_file_is_loaded_in_memory_but_not_saved_in_history(self):
+        text = '# Netscape HTTP Cookie File\n.example.com\tTRUE\t/\tTRUE\t0\tsession\tfixture-secret\n'
+        with patch.object(app, 'ANDROID_MODE', True), patch.object(app.EXECUTOR, 'submit', return_value=Future()):
+            created = app.create_download(app.DownloadRequest(url='https://example.com/video', cookies_text=text))
+            job = app.get_job(created['id'])
+            opts = app.build_ydl_options(job)
+            with app.yt_dlp.YoutubeDL(opts) as ydl:
+                app.prepare_cookie_jar(ydl, opts)
+                self.assertEqual([cookie.value for cookie in ydl.cookiejar], ['fixture-secret'])
+        self.assertNotIn('fixture-secret', app.STATE_FILE.read_text(encoding='utf-8'))
+        self.assertNotIn('fixture-secret', json.dumps(created))
+
+    def test_browser_cookie_error_gives_a_file_fallback(self):
+        with patch.object(app, 'load_cookies', side_effect=app.CookieLoadError('failed to load cookies')):
+            with self.assertRaises(app.HTTPException) as raised:
+                app.get_info(app.InfoRequest(url='https://example.com/video', cookies_browser='chrome'))
+        self.assertIn('cookies.txt', raised.exception.detail)
+
     def test_android_update_check_queries_the_release_feed(self):
         release = {
             'status': 'current',

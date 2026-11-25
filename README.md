@@ -143,7 +143,8 @@ outside the application bundle. The existing `AllInOne` data folder and
   The debug APK is `android/app/build/outputs/apk/debug/app-debug.apk` and
   supports Android 10+ on 64-bit ARM or x86 devices. Downloads use the phone's
   app storage; tapping **Save file** or **Download ZIP** exports them to the
-  system Downloads folder. Browser-cookie extraction is unavailable on Android.
+  system Downloads folder. Android can use a Netscape `cookies.txt` file under
+  **Connection settings**, but cannot extract cookies from another app's browser.
   The Android module is GPL-3.0; its license and third-party notices are bundled
   in the APK. Release APKs need signing with the publisher's own key.
 - The Android workflow builds a debug APK and compiles the instrumentation test.
@@ -206,8 +207,11 @@ JavaScript challenge components.
 - YouTube sometimes asks for sign-in or bot verification. In **Connection settings →
   Cookies from browser**, pick the browser you are signed into YouTube with and
   analyze the link again.
-- If cookie extraction fails on Chrome/Edge, close the browser first (the
-  cookie database is locked while it runs).
+- If browser-cookie extraction fails, close the selected browser completely
+  and retry. If the database is protected, select a Netscape `cookies.txt` export
+  for the relevant site under **Connection settings → Cookies file**. This works
+  on desktop and Android. Cookie contents are held in memory, not saved in
+  settings or download history. Select the file again after reopening the app.
 - **Connection settings** is available before analysis. It accepts an optional
   HTTP/SOCKS proxy; invalid addresses produce an error. The download panel
   offers thumbnail embedding, SponsorBlock removal, and a speed limit.

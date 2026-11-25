@@ -47,6 +47,17 @@ const sponsorCheck = $("#sponsorCheck");
 const ratelimitSelect = $("#ratelimitSelect");
 const proxyInput = $("#proxyInput");
 const cookiesSelect = $("#cookiesSelect");
+const cookieFileInput = $("#cookieFileInput");
+const cookieFileStatus = $("#cookieFileStatus");
+const clearCookieFile = $("#clearCookieFile");
+// Kept out of settings and localStorage. Sent only to this app's loopback API.
+let cookieFileText = null;
+
+function requestCookies() {
+  return cookieFileText === null
+    ? { cookies_browser: settings.cookies || null }
+    : { cookies_text: cookieFileText };
+}
 const playlistBox = $("#playlistBox");
 const playlistList = $("#playlistList");
 const plCount = $("#plCount");
@@ -380,7 +391,7 @@ function applyPreset(id) {
     codecSelect.value = "auto";
   } else if (id === "compatible") {
     const heights = (state.info && state.info.qualities || []).map((quality) => quality.height);
-    const compatibleHeight = heights.find((height) => height <= 1080);
+    const compatibleHeight = heights.find((height) => height > 0 && height <= 1080);
     qualitySelect.value = compatibleHeight ? String(compatibleHeight) : "best";
     formatSelect.value = "mp4";
     syncCodecs();
@@ -408,9 +419,10 @@ function populateQualities(info) {
   const top = info.qualities && info.qualities[0];
   const best = document.createElement("option");
   best.value = "best";
-  best.textContent = top ? `Best available · up to ${top.height}p` : "Best available";
+  best.textContent = top?.height ? `Best available · up to ${top.height}p` : "Best available";
   qualitySelect.append(best);
   for (const quality of info.qualities || []) {
+    if (!quality.height) continue;
     let largest = quality.formats[0];
     for (const format of quality.formats) {
       if ((format.filesize || 0) > (largest.filesize || 0)) largest = format;
@@ -486,7 +498,7 @@ function expectedVariant(container, codec, cap) {
   const codecMatch = [];
   const all = [];
   for (const quality of info.qualities) {
-    if (Number.isFinite(limit) && quality.height > limit) continue;
+    if (Number.isFinite(limit) && (!quality.height || quality.height > limit)) continue;
     for (const format of quality.formats || []) {
       const candidate = { ...format, height: quality.height };
       all.push(candidate);
@@ -549,7 +561,8 @@ function renderExpected() {
     return;
   }
   const overall = (info.qualities && info.qualities[0] && info.qualities[0].height) || 0;
-  let text = `Expected: ${container.toUpperCase()} · ${variant.height}p · ${CODEC_DISPLAY[variant.codec] || variant.codec}`;
+  let text = `Expected: ${container.toUpperCase()} · ${variant.height ? `${variant.height}p` : "resolution not reported"}`;
+  if (variant.codec !== "unknown") text += ` · ${CODEC_DISPLAY[variant.codec] || variant.codec}`;
   if (variant.hdr) text += " · HDR";
   if (container !== "mkv" && overall > variant.height) {
     text += ` — ${overall}p is available in MKV for maximum quality.`;
@@ -728,7 +741,7 @@ function renderMedia(info, sourceUrl) {
   addChip(info.extractor, true);
   if (info.uploader) addChip(info.uploader);
   if (info.is_playlist) addChip(`Playlist · ${info.playlist_count || info.entries.length} items`);
-  else if (info.qualities && info.qualities.length) addChip(`Up to ${info.qualities[0].height}p`);
+  else if (info.qualities?.[0]?.height) addChip(`Up to ${info.qualities[0].height}p`);
   if (info.audio_formats && info.audio_formats.length && info.audio_only) {
     const source = info.source_audio;
     addChip(source ? `Source: ${source.codec}${source.abr ? ` ${Math.round(source.abr)} kbps` : ""}` : "Audio source");
@@ -808,7 +821,7 @@ async function analyze(event) {
       method: "POST",
       body: JSON.stringify({
         url,
-        cookies_browser: settings.cookies || null,
+        ...requestCookies(),
         proxy: settings.proxy || null,
       }),
     });
@@ -859,7 +872,7 @@ async function startDownload() {
     subtitles: !audio && subsCheck.checked,
     subtitle_lang: subLangSelect.value,
     is_playlist: Boolean(info.is_playlist),
-    cookies_browser: settings.cookies || null,
+    ...requestCookies(),
     embed_thumbnail: embedCheck.checked,
     sponsorblock: Boolean(settings.sponsorblock),
     ratelimit: settings.ratelimit ? Number(settings.ratelimit) : null,
@@ -970,7 +983,7 @@ async function submitBatch() {
           quality,
           container,
           is_playlist: false,
-          cookies_browser: settings.cookies || null,
+          ...requestCookies(),
           embed_thumbnail: Boolean(settings.embed) && EMBED_CONTAINERS.has(container),
           sponsorblock: Boolean(settings.sponsorblock),
           ratelimit: settings.ratelimit ? Number(settings.ratelimit) : null,
@@ -1543,7 +1556,7 @@ async function loadHealth() {
       cookiesSelect.value = "";
       notifyCheck.checked = false;
       saveSettings();
-      $("#connectionHint").textContent = "Proxy settings apply to this device. Browser-cookie extraction is not available in the Android app.";
+      $("#connectionHint").textContent = "Use a cookies.txt file if the site requires sign-in. Android cannot read your browser’s private cookie store.";
     }
     engineBadge.classList.toggle("ok", Boolean(health.ffmpeg));
     engineBadge.classList.toggle("warn", !health.ffmpeg);
@@ -1734,6 +1747,37 @@ embedCheck.addEventListener("change", () => {
 sponsorCheck.addEventListener("change", () => {
   settings.sponsorblock = sponsorCheck.checked;
   saveSettings();
+});
+
+function resetCookieFile() {
+  cookieFileText = null;
+  cookieFileInput.value = "";
+  cookiesSelect.disabled = false;
+  clearCookieFile.classList.add("hidden");
+  cookieFileStatus.textContent = "Netscape cookies.txt, up to 256 KB. Use an export for the relevant site only.";
+}
+
+clearCookieFile.addEventListener("click", resetCookieFile);
+cookieFileInput.addEventListener("change", async () => {
+  const file = cookieFileInput.files[0];
+  cookieFileText = null;
+  cookiesSelect.disabled = false;
+  clearCookieFile.classList.add("hidden");
+  if (!file) return resetCookieFile();
+  try {
+    if (file.size === 0 || file.size > 256 * 1024) throw new Error("size");
+    const text = await file.text();
+    if (cookieFileInput.files[0] !== file) return;
+    if (!/^# (?:Netscape HTTP Cookie File|HTTP Cookie File)/.test(text)) throw new Error("format");
+    cookieFileText = text;
+    cookiesSelect.disabled = true;
+    clearCookieFile.classList.remove("hidden");
+    cookieFileStatus.textContent = "Cookies file selected for this page session.";
+  } catch {
+    if (cookieFileInput.files[0] !== file) return;
+    resetCookieFile();
+    cookieFileStatus.textContent = "Choose a valid Netscape cookies.txt file up to 256 KB.";
+  }
 });
 
 cookiesSelect.addEventListener("change", () => {

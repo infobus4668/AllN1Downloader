@@ -289,6 +289,16 @@ try {
   await until(() => run(`state.platform==='android'`));
   await run(`refreshJobs()`);
   assert.ok(await run(`document.querySelector('#notifyLabel').classList.contains('hidden') && document.querySelector('#cookiesControl').classList.contains('hidden')`));
+  assert.ok(await run(`!cookieFileInput.closest('.hidden')`));
+  await run(`(() => {
+    const transfer = new DataTransfer();
+    transfer.items.add(new File(['# Netscape HTTP Cookie File\\n'], 'cookies.txt'));
+    cookieFileInput.files = transfer.files;
+    cookieFileInput.dispatchEvent(new Event('change'));
+  })()`);
+  await until(() => run(`requestCookies().cookies_text?.startsWith('# Netscape')`));
+  await run(`clearCookieFile.click()`);
+  assert.ok(await run(`!('cookies_text' in requestCookies())`));
   assert.ok(await run(`state.jobs.get('btn-forced').el.querySelector('[data-action="copy"]').classList.contains('hidden')`));
   assert.ok(await run(`window.__buttonCalls.some(call=>call.url.endsWith('/forget')) && window.__buttonCalls.some(call=>call.method==='DELETE') && window.__buttonCalls.some(call=>call.url==='/api/jobs/clear-finished')`));
   assert.deepEqual(errors, []);

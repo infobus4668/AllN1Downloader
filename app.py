@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import logging
 import math
@@ -30,9 +31,10 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from yt_dlp.cookies import CookieLoadError, YoutubeDLCookieJar, load_cookies
 
-APP_VERSION = "1.0.2"
+APP_VERSION = "1.0.3"
 UPDATE_REPOSITORY = os.environ.get("ALLN1_UPDATE_REPOSITORY", update_service.DEFAULT_REPOSITORY)
 UPDATE_LOCK = threading.Lock()
 UPDATE_STATE: Dict[str, Any] = {
@@ -89,6 +91,46 @@ VIDEO_CONTAINERS = {"mp4", "mkv", "webm"}
 AUDIO_CONTAINERS = {"original", "mp3", "m4a", "opus", "wav", "flac"}
 AUDIO_QUALITIES = {"320", "256", "192", "128"}
 COOKIE_BROWSERS = {"chrome", "edge", "firefox", "brave", "opera", "vivaldi", "chromium", "safari"}
+MAX_COOKIE_FILE = 256 * 1024
+
+
+def cookie_options(browser: Optional[str], text: Optional[str]) -> Dict[str, Any]:
+    if text is not None:
+        text = text.removeprefix("\ufeff").replace("\r\n", "\n").replace("\r", "\n")
+        try:
+            if len(text.encode("utf-8")) > MAX_COOKIE_FILE or "\x00" in text:
+                raise ValueError
+            for line in text.splitlines():
+                row = line.removeprefix("#HttpOnly_")
+                if not row.strip() or row.startswith("#"):
+                    continue
+                fields = row.split("\t")
+                if len(fields) != 7 or fields[1] not in {"TRUE", "FALSE"} or fields[3] not in {"TRUE", "FALSE"}:
+                    raise ValueError
+                if fields[4] and not re.fullmatch(r"[0-9]+(?:\.[0-9]+)?", fields[4]):
+                    raise ValueError
+            jar = YoutubeDLCookieJar(io.StringIO(text))
+            jar.load()
+            if not any(not cookie.is_expired() for cookie in jar):
+                raise ValueError
+        except Exception:
+            raise HTTPException(status_code=400, detail="Choose a valid Netscape cookies.txt file with current cookies (up to 256 KB).") from None
+        return {"cookiefile": io.StringIO(text)}
+    if browser:
+        if browser not in COOKIE_BROWSERS or ANDROID_MODE:
+            raise HTTPException(status_code=400, detail="Browser cookie extraction is unavailable here. Use a cookies.txt file.")
+        return {"cookiesfrombrowser": (browser,)}
+    return {}
+
+
+def cookie_failure_message() -> str:
+    return ("Could not load browser cookies. Close the selected browser completely and retry. "
+            "If its cookie database is missing or protected, use a Netscape cookies.txt file instead.")
+
+
+def prepare_cookie_jar(ydl: yt_dlp.YoutubeDL, options: Dict[str, Any]) -> None:
+    if options.get("cookiefile") is not None or options.get("cookiesfrombrowser"):
+        ydl.cookiejar = load_cookies(options.get("cookiefile"), options.get("cookiesfrombrowser"), ydl)
 CODEC_FILTERS = {"h264": "avc1", "vp9": "vp9", "av1": "av01", "h265": "hev"}
 CODEC_ORDER = {"av1": 0, "vp9": 1, "h264": 2, "h265": 3}
 EMBED_THUMBNAIL_CONTAINERS = {"mp3", "m4a", "flac", "mp4", "mkv"}
@@ -305,12 +347,14 @@ def audio_codec_family(acodec: Any) -> str:
 
 
 def describe_qualities(formats: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    by_height: Dict[int, Dict[str, Dict[str, Any]]] = {}
+    by_height = {}
     for fmt in formats:
         height = fmt.get("height")
-        family = codec_family(fmt.get("vcodec"))
-        if not height or not family or family not in CODEC_ORDER:
+        codec = fmt.get("vcodec")
+        ext = fmt.get("ext")
+        if codec == "none" or (not codec and ext not in {"mp4", "webm", "mkv", "mov", "m4v", "ts", "flv", "3gp"}):
             continue
+        family = codec_family(codec) or "unknown"
         size = fmt.get("filesize") or fmt.get("filesize_approx")
         tbr = fmt.get("tbr")
         entry = {
@@ -322,10 +366,12 @@ def describe_qualities(formats: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             "tbr": tbr,
             "hdr": bool(fmt.get("dynamic_range") and str(fmt.get("dynamic_range")).upper() != "SDR"),
         }
-        existing = by_height.setdefault(height, {}).get(family)
+        key = (family, ext)
+        height = height or 0
+        existing = by_height.setdefault(height, {}).get(key)
         score = (size or 0, tbr or 0)
         if existing is None or score > ((existing.get("filesize") or 0), (existing.get("tbr") or 0)):
-            by_height[height][family] = entry
+            by_height[height][key] = entry
     qualities = []
     for height in sorted(by_height, reverse=True):
         variants = sorted(
@@ -502,6 +548,7 @@ class Job:
         self.id = job_id or uuid.uuid4().hex[:10]
         self.url = url
         self.options = options
+        self.cookie_text: Optional[str] = None
         self.fingerprint = job_fingerprint(url, options)
         self.media: Optional[Dict[str, Any]] = None
         self.title = clean_text(title, 200) or "Preparing download..."
@@ -719,16 +766,16 @@ def build_format(mode: str, quality: str, container: str, codec: str = "auto") -
     cap = f"[height<={height}]" if height else ""
     codec_part = f"[vcodec^={CODEC_FILTERS[codec]}]" if codec in CODEC_FILTERS else ""
     if container == "mp4":
-        base = f"bv*[ext=mp4]{cap}+ba[ext=m4a]/bv*{cap}+ba/b{cap}"
+        base = f"bv*[ext=mp4]{cap}+ba[ext=m4a]/bv*{cap}+ba/b{cap}/bv*{cap}"
         if codec_part:
             return f"bv*[ext=mp4]{codec_part}{cap}+ba[ext=m4a]/bv*{codec_part}{cap}+ba/b{cap}/{base}"
         return base
     if container == "webm":
-        base = f"bv*[ext=webm]{cap}+ba[ext=webm]/b[ext=webm]{cap}"
+        base = f"bv*[ext=webm]{cap}+ba[ext=webm]/b[ext=webm]{cap}/bv*[ext=webm]{cap}"
         if codec_part:
             return f"bv*[ext=webm]{codec_part}{cap}+ba[ext=webm]/b[ext=webm]{codec_part}{cap}/{base}"
         return base
-    base = f"bv*{cap}+ba/b{cap}"
+    base = f"bv*{cap}+ba/b{cap}/bv*{cap}"
     if codec_part:
         return f"bv*{codec_part}{cap}+ba/b{cap}/{base}"
     return base
@@ -832,8 +879,7 @@ def build_ydl_options(job: Job) -> Dict[str, Any]:
     if JS_RUNTIMES:
         ydl_opts["js_runtimes"] = JS_RUNTIMES
         ydl_opts["remote_components"] = ["ejs:github"]
-    if opts.get("cookies_browser"):
-        ydl_opts["cookiesfrombrowser"] = (opts["cookies_browser"],)
+    ydl_opts.update(cookie_options(opts.get("cookies_browser"), job.cookie_text))
     if opts.get("proxy"):
         ydl_opts["proxy"] = opts["proxy"]
     if opts.get("ratelimit"):
@@ -899,7 +945,9 @@ def run_job(job: Job) -> None:
     try:
         if job.cancel_event.is_set():
             raise yt_dlp.utils.DownloadCancelled("Cancelled before download")
-        with yt_dlp.YoutubeDL(build_ydl_options(job)) as ydl:
+        options = build_ydl_options(job)
+        with yt_dlp.YoutubeDL(options) as ydl:
+            prepare_cookie_jar(ydl, options)
             if ydl.download([job.url]):
                 raise RuntimeError("The downloader reported an incomplete download. See Logs for details.")
         if job.cancel_event.is_set():
@@ -936,7 +984,10 @@ def run_job(job: Job) -> None:
             with job.lock:
                 job.status = "cancelled"
         else:
-            message = clean_text(exc, 400) or "Download failed"
+            if isinstance(exc, CookieLoadError):
+                message = "Could not load the selected cookies.txt file." if job.cookie_text is not None else cookie_failure_message()
+            else:
+                message = clean_text(exc, 400) or "Download failed"
             with job.lock:
                 job.status = "error"
                 job.error = message
@@ -963,6 +1014,7 @@ def get_job(job_id: str) -> Job:
 class InfoRequest(BaseModel):
     url: str
     cookies_browser: Optional[str] = None
+    cookies_text: Optional[str] = Field(default=None, max_length=MAX_COOKIE_FILE)
     proxy: Optional[str] = None
 
 
@@ -978,6 +1030,7 @@ class DownloadRequest(BaseModel):
     playlist_items: Optional[List[int]] = None
     is_playlist: bool = False
     cookies_browser: Optional[str] = None
+    cookies_text: Optional[str] = Field(default=None, max_length=MAX_COOKIE_FILE)
     embed_thumbnail: bool = False
     sponsorblock: bool = False
     ratelimit: Optional[int] = None
@@ -1191,14 +1244,18 @@ def get_info(req: InfoRequest) -> Dict[str, Any]:
     if JS_RUNTIMES:
         ydl_opts["js_runtimes"] = JS_RUNTIMES
         ydl_opts["remote_components"] = ["ejs:github"]
-    if req.cookies_browser in COOKIE_BROWSERS:
-        ydl_opts["cookiesfrombrowser"] = (req.cookies_browser,)
+    cookies = cookie_options(req.cookies_browser, req.cookies_text)
+    ydl_opts.update(cookies)
     proxy = requested_proxy(req.proxy)
     if proxy:
         ydl_opts["proxy"] = proxy
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            prepare_cookie_jar(ydl, cookies)
             info = ydl.extract_info(url, download=False)
+    except CookieLoadError:
+        message = "Could not load the selected cookies.txt file." if req.cookies_text is not None else cookie_failure_message()
+        raise HTTPException(status_code=400, detail=message) from None
     except Exception as exc:  # noqa: BLE001 - report any analysis failure to the UI
         raise HTTPException(status_code=400, detail=clean_text(exc, 400) or "Could not analyze this link")
     if not info:
@@ -1231,19 +1288,15 @@ def get_info(req: InfoRequest) -> Dict[str, Any]:
             thumbnail = thumbs[-1].get("url")
 
     formats = info.get("formats") or []
-    heights = sorted({
-        fmt.get("height")
-        for fmt in formats
-        if fmt.get("height") and fmt.get("vcodec") not in (None, "none")
-    }, reverse=True)
+    qualities = describe_qualities(formats)
+    heights = [quality["height"] for quality in qualities if quality["height"]]
     audio_exts = {"mp3", "m4a", "aac", "opus", "ogg", "oga", "wav", "flac", "wma", "alac"}
     audio_only = (
         bool(formats)
-        and not heights
+        and not qualities
         and all(fmt.get("vcodec") in (None, "none") for fmt in formats)
         and (info.get("ext") in audio_exts or info.get("vcodec") == "none")
     )
-    qualities = describe_qualities(formats)
     audio_formats = describe_audio(formats)
 
     return {
@@ -1272,6 +1325,7 @@ def get_info(req: InfoRequest) -> Dict[str, Any]:
 @app.post("/api/download")
 def create_download(req: DownloadRequest) -> Dict[str, Any]:
     url = validate_url(req.url)
+    cookie_options(req.cookies_browser, req.cookies_text)
     mode = (req.mode or "video").lower()
     if mode not in ("video", "audio"):
         raise HTTPException(status_code=400, detail="Invalid download type")
@@ -1312,7 +1366,7 @@ def create_download(req: DownloadRequest) -> Dict[str, Any]:
         "subtitle_lang": subtitle_lang,
         "playlist_items": items,
         "is_playlist": bool(req.is_playlist),
-        "cookies_browser": req.cookies_browser if req.cookies_browser in COOKIE_BROWSERS else None,
+        "cookies_browser": req.cookies_browser if req.cookies_text is None else None,
         "embed_thumbnail": bool(req.embed_thumbnail),
         "sponsorblock": bool(req.sponsorblock),
         "ratelimit": clean_ratelimit(req.ratelimit),
@@ -1321,6 +1375,8 @@ def create_download(req: DownloadRequest) -> Dict[str, Any]:
         "clip_end": clip_end,
         "clip_precise": clip_precise,
     }
+    if req.cookies_text is not None:
+        options["uses_cookie_file"] = True
     job = Job(
         url=url,
         options=options,
@@ -1328,6 +1384,7 @@ def create_download(req: DownloadRequest) -> Dict[str, Any]:
         thumbnail=req.thumbnail,
         ensure_dir=False,
     )
+    job.cookie_text = req.cookies_text
     with jobs_lock:
         if not req.force:
             duplicate = next(
@@ -1397,6 +1454,8 @@ def retry_job(job_id: str) -> Dict[str, Any]:
             raise HTTPException(status_code=404, detail="Job not found")
         if job.status not in TERMINAL_STATUSES or (job.future and not job.future.done()):
             raise HTTPException(status_code=400, detail="This download is still running")
+        if job.options.get("uses_cookie_file") and job.cookie_text is None:
+            raise HTTPException(status_code=400, detail="Select your cookies.txt file again and queue this link as a new download.")
         job.dir.mkdir(parents=True, exist_ok=True)
         job.status = "queued"
         job.progress = 0.0

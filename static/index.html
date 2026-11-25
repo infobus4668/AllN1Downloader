@@ -133,6 +133,10 @@
           <div class="select-wrap"><select id="cookiesSelect">
             <option value="">Off</option><option value="chrome">Chrome</option><option value="edge">Edge</option><option value="firefox">Firefox</option><option value="brave">Brave</option><option value="opera">Opera</option><option value="vivaldi">Vivaldi</option><option value="chromium">Chromium</option><option value="safari">Safari</option>
           </select></div></div>
+        <div><label class="opt-label" for="cookieFileInput">Cookies file (optional)</label>
+          <input class="text-input" type="file" id="cookieFileInput" accept=".txt,text/plain">
+          <button class="btn mini hidden" type="button" id="clearCookieFile">Clear cookies file</button>
+          <p class="hint" id="cookieFileStatus" role="status">Netscape cookies.txt, up to 256 KB. Use an export for the relevant site only.</p></div>
         <div><label class="opt-label" for="proxyInput">HTTP(S) or SOCKS proxy</label><input class="text-input" id="proxyInput" placeholder="Leave blank for a direct connection" spellcheck="false"></div>
       </div>
       <p class="hint" id="connectionHint">Applies to analysis and downloads. Choose your signed-in browser only if the source requires it.</p>
