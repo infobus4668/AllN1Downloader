@@ -34,7 +34,7 @@ jobs:
         if: steps.sdk.outputs.changed == 'true'
         run: bash android/gradlew -p android --no-daemon assembleDebug assembleDebugAndroidTest lintDebug -PchaquopyBuildPython=python
       - uses: reactivecircus/android-emulator-runner@v2
-        if: steps.sdk.outputs.changed == 'true'
+        if: steps.sdk.outputs.changed == 'true' && vars.ANDROID_EMULATOR_TESTS == 'true'
         env:
           ANDROID_I_WANT_MY_TCG: 'yes'
         with:
@@ -53,6 +53,6 @@ jobs:
           commit-message: 'chore(deps-android): update Android SDK toolchain'
           title: 'chore(deps-android): update Android SDK toolchain'
           body: |
-            Automated stable Android build-tools and NDK update.
+            Automated stable Android build-tools and NDK update. Debug build and lint passed.
 
-            The Android debug build, lint, and API 36 emulator instrumentation tests passed before this pull request was opened.
+            API 36 emulator instrumentation is run when the ANDROID_EMULATOR_TESTS repository variable is enabled on a hardware-accelerated runner.

@@ -18,9 +18,11 @@ create Dependabot security update pull requests when security updates are
 enabled in repository settings and an applicable vulnerability is detected.
 The Android SDK build-tools and NDK pins are checked weekly by
 `.github/workflows/update-android-sdk.yml`; when a newer stable package exists,
-it updates the pins and runs the Android build, lint and emulator tests before
-opening a pull request. Updates are **not auto-merged**: a maintainer reviews
-the changes and merges after the required checks pass.
+it updates the pins and runs the Android build and lint before opening a pull
+request. Set the repository variable `ANDROID_EMULATOR_TESTS=true` on a runner
+with emulator hardware acceleration to also run instrumentation. Updates are
+**not auto-merged**: a maintainer reviews the changes and merges after the
+required checks pass.
 
 ## Validation before merging
 
@@ -30,8 +32,8 @@ Dependency-related pull requests automatically run:
   tests, browser smoke checks, and JavaScript syntax.
 - `.github/workflows/package-desktop.yml`: Windows frozen-app build and smoke
   test, plus the Ubuntu `.deb` build.
-- `.github/workflows/android-apk.yml`: Android debug build, lint, and API 36
-  emulator instrumentation test.
+- `.github/workflows/android-apk.yml`: Android debug build and lint; optional
+  API 36 emulator instrumentation when `ANDROID_EMULATOR_TESTS=true`.
 
 The packaging and Android workflows run on pull requests that change their
 respective manifests, source/assets, build scripts, or workflow files. CI does

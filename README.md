@@ -1,6 +1,7 @@
 # AllN1Downloader
 
-A single-user desktop downloader with a local web interface. See the
+A local-first video and audio downloader for desktop and Android, with a
+loopback web interface. See the
 [release notes and verification guide](RELEASE.md) for the supported deployment,
 checks and backup procedure.
 Dependency update automation and its review/validation process are described
@@ -18,6 +19,15 @@ Built on the best open-source tools available:
   conversion.
 - **[FastAPI](https://fastapi.tiangolo.com/)** + vanilla JS — a tiny local
   backend and a dependency-free frontend.
+
+## Latest release: 1.0.1
+
+- [Windows x64](https://github.com/infobus4668/AllN1Downloader/releases/latest/download/AllN1Downloader-Windows-x64.exe)
+- [Android APK](https://github.com/infobus4668/AllN1Downloader/releases/latest/download/AllN1Downloader-Android.apk)
+- [Android App Bundle](https://github.com/infobus4668/AllN1Downloader/releases/latest/download/AllN1Downloader-Android.aab)
+- [Debian/Ubuntu amd64 package](https://github.com/infobus4668/AllN1Downloader/releases/latest/download/alln1downloader_1.0.1_amd64.deb)
+
+The Debian package configures the [signed APT repository](https://infobus4668.github.io/AllN1Downloader/apt).
 
 ## Features
 
@@ -112,9 +122,10 @@ outside the application bundle. The existing `AllInOne` data folder and
   The build script installs its pinned requirements. The package installs a
   desktop-menu entry, configures the signed AllN1Downloader APT repository, and
   declares FFmpeg as a dependency.
-- A `v*` GitHub release builds/signs Windows, Android and Debian artifacts,
-  publishes release assets and updates the signed APT repository. Dependabot and
-  the Android SDK updater open tested dependency-update PRs weekly.
+- With the required publisher secrets configured, pushing a `v*` tag runs the
+  signed Windows, Android and Debian release workflow and publishes the APT
+  repository. The current `v1.0.1` release is available from the links above.
+  Dependabot and the Android SDK updater open dependency-update PRs weekly.
 - **Standalone Android APK:** uses an on-device Python 3.12 runtime and local
   loopback server; downloads and history stay on the phone. Build with Android
   SDK 37, JDK 21+, and Python 3.12:
@@ -135,8 +146,10 @@ outside the application bundle. The existing `AllInOne` data folder and
   system Downloads folder. Browser-cookie extraction is unavailable on Android.
   The Android module is GPL-3.0; its license and third-party notices are bundled
   in the APK. Release APKs need signing with the publisher's own key.
-- The Android workflow also builds an x86_64 emulator image and runs the
-  embedded-server/WebView startup smoke test; its APK is uploaded as an artifact.
+- The Android workflow builds a debug APK and compiles the instrumentation test.
+  Set the repository variable `ANDROID_EMULATOR_TESTS=true` and use a runner with
+  emulator hardware acceleration to run the API 36 smoke test; the current
+  hosted runner could not boot its software-only emulator.
 
 ### Publisher signing
 
@@ -155,8 +168,8 @@ at startup. Windows downloads and verifies the pinned-signer EXE, then replaces
 and restarts when the install folder is writable and no downloads are active.
 Android downloads a matching signed APK and the OS asks for install
 confirmation. Debian/Ubuntu packages use the signed APT repository and system
-authorization prompt. These updates begin after the first release is published
-at `github.com/infobus4668/AllN1Downloader`.
+authorization prompt. These updates use the latest published release at
+`github.com/infobus4668/AllN1Downloader/releases/latest`.
 
 For YouTube extraction, install Node.js or Deno on desktop; the Android APK
 bundles QuickJS. These are local applications: media processing and downloaded

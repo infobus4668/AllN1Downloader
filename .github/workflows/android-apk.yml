@@ -56,6 +56,7 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
       - uses: reactivecircus/android-emulator-runner@v2
+        if: vars.ANDROID_EMULATOR_TESTS == 'true'
         env:
           ANDROID_I_WANT_MY_TCG: 'yes'
         with:

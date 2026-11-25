@@ -44,14 +44,16 @@ documented in [DEPENDENCIES.md](DEPENDENCIES.md).
   application ID is retained for signing and data continuity.
 - Built and signed `android/app/build/outputs/apk/release/app-release.apk` and
   `android/app/build/outputs/bundle/release/app-release.aab` with the persistent
-  Android keystore. APK/AAB signature verification and API 36 emulator
-  instrumentation passed.
+  Android keystore; APK/AAB signature verification and Android Lint passed. The
+  API 36 instrumentation test compiles, but the GitHub-hosted runner could not
+  boot its software-only emulator, so the 1.0.1 instrumentation run is unverified.
 - Rebuilt and signed `dist/AllN1Downloader.exe` using Python 3.12.16, PyInstaller
   `6.22.3`, yt-dlp `2026.11.23`, FFmpeg `9.1`, and Node `26.8.1`. The Windows
   frozen-app smoke test passed. Its self-signed Authenticode certificate is
   timestamped but is not publicly trusted.
-- A Debian `.deb` was not built on this Windows host; it requires the Ubuntu
-  packaging workflow. The Debian signing key is ready for that workflow.
+- Built `alln1downloader_1.0.1_amd64.deb` in the Ubuntu 22.04 package workflow.
+  Its detached signature and signed APT `InRelease` metadata were verified with
+  the committed public archive key; the repository is published on GitHub Pages.
 
 ## Runtime updates
 
@@ -67,8 +69,11 @@ the executable directory is writable and no downloads are active. Android
 downloads an APK signed with the existing app key and asks Android's package
 installer for confirmation. Debian packages configure a signed APT repository;
 the app can start an APT upgrade through the system's authorization prompt, and
-standard OS update tools can also apply it. Auto-updates require a published
-release and configured GitHub Actions signing secrets.
+standard OS update tools can also apply it. Client auto-updates require a
+published signed release (and the signed APT repository for Debian). The
+GitHub Actions tag-publishing workflow additionally requires the signing secrets
+documented in `SIGNING.md`; the 1.0.1 release was signed locally and published
+with its verified assets.
 
 ZIP exports use an independent temporary archive per request. Sending or
 interrupting an export closes that archive without removing the downloaded
@@ -177,11 +182,11 @@ submission, duplicate handling, queue controls and job actions, including the
 390px layout. The frozen Windows 1.0.1 executable smoke passed with the updated
 yt-dlp, bundled FFmpeg/ffprobe and Node; it verified MP3 conversion and ZIP
 export. The Android 1.0.1 APK/AAB were signed with the persistent Android
-keystore and signature-verified. Android Lint and API 36 emulator instrumentation
-passed with the updated yt-dlp/FastAPI/Uvicorn stack: the test launched the
-embedded backend, downloaded a local WAV, converted it to MP3, verified it with
-ffprobe and exported a ZIP. The Debian package still requires the Ubuntu 22.04
-packaging workflow; it could not be built on this Windows host.
+keystore and signature-verified. Android Lint passed with the updated
+yt-dlp/FastAPI/Uvicorn stack. The API 36 instrumentation test compiled, but its
+GitHub-hosted software emulator did not boot, so that test is not confirmed for
+1.0.1. The Debian package and signed APT repository were built in Ubuntu CI and
+verified against the publisher's public key.
 Before broad distribution,
 verify real-site features (including subtitles, signed-in sources, SponsorBlock
 and precise video cuts), and check keyboard/screen-reader usability on the
