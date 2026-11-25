@@ -43,6 +43,10 @@ public final class AndroidStartupSmokeTest {
 
     @Test
     public void embeddedPythonServerAndLocalUiStart() throws Exception {
+        String versionName = InstrumentationRegistry.getInstrumentation().getTargetContext()
+                .getPackageManager().getPackageInfo(
+                        InstrumentationRegistry.getInstrumentation().getTargetContext().getPackageName(), 0
+                ).versionName;
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(90);
             boolean ready = false;
@@ -56,7 +60,7 @@ public final class AndroidStartupSmokeTest {
                         return;
                     }
                     webView.evaluateJavascript(
-                             "document.querySelector('#versionInfo')?.textContent === 'AllN1Downloader v" + BuildConfig.VERSION_NAME + "' " +
+                             "document.querySelector('#versionInfo')?.textContent === 'AllN1Downloader v" + versionName + "' " +
                                      "&& document.querySelector('#cookiesControl')?.classList.contains('hidden') " +
                                     "&& document.querySelector('#notifyLabel')?.classList.contains('hidden') " +
                                      "&& typeof window.AllN1DownloaderAndroid?.onDownloadQueued === 'function'",
