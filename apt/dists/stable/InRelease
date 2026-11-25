@@ -5,36 +5,27 @@ Origin: AllN1Downloader
 Label: AllN1Downloader
 Suite: stable
 Codename: stable
-Date: Tue, 24 Nov 2026 17:27:41 +0000
+Date: Wed, 25 Nov 2026 17:09:13 GMT
 Architectures: amd64
 Components: main
 Description: AllN1Downloader signed package repository
-
-MD5Sum:
- a2e919eb0b3dc53bf2c2599e1a931653              566 main/binary-amd64/Packages
- d7b3c4841e1d88c41dccacfaf0785112              408 main/binary-amd64/Packages.gz
-
-SHA1:
- cc38052c73c09f26dff493265b614f84237c485d              566 main/binary-amd64/Packages
- a2eda435ef6c4cef76d2b6269126adfc06e94960              408 main/binary-amd64/Packages.gz
-
 SHA256:
- aa6d7953f4e4b6914b9d95a708d36c96f2a4a03a980faca27adf701b36dcd458              566 main/binary-amd64/Packages
- 769f512ef10da93f2a46e8339889cd721918e30accf38652e5776253845fef79              408 main/binary-amd64/Packages.gz
+ 4225ff161cd1a441dd2e0ab48095c0d0f04d24655bded2fc15599608b6f58f74 478 main/binary-amd64/Packages
+ 6577f4ad936b7af314f27bccf4b940ba08c2603a4d93452bf910f54affb263e5 346 main/binary-amd64/Packages.gz
 
 -----BEGIN PGP SIGNATURE-----
 
-wsFzBAEBCAAdBQJrBckNFiEEs11utpsE3JtSEYasLAFw7TiTMkUACgkQLAFw7TiT
-MkXihg//Xzo9GIFmmCI7HBhA9kPiHicaIx5ToC4YhyzebTkZ6xLQ2JiTthOyY/+p
-yk3Y9mhe6uDN4NJh6MYodNezWy6852DHj6vKVXUqYRtRgcrYAGlh3NQlPpQdWRom
-PFyhl3e5OYM0XMkTKFwZi7CDCbEjtMsle+ETS5TrlHfEUE7qHTjg2kAfhkgfT/nd
-Y7fJMMafc5ZNsDx31jodvfM/t7d/294MIFDN+zrTC78JciBeMpV/bZaB9TPs4v0K
-dlZyuCrWueAzS8ZnTjoCwIphgYo6SKxyuSjSN+3OBvsKrZruD3NQf/hr9Xxt2VA4
-Pf8Yr+gLcLQqYU/cCLIMV+7CgkZnn37vWGzCKk1KTLTYZj2xmziHuv6kDoQ0ehT6
-R2NfRBZUZduQJ/O/K5PtIgzZw1boPjVZskIqFguRKqMlLASKYPE+Eb8zC3aV5YAn
-e880kfkMTsH6/OJSgkH2JMtuNDdO0jZgdjBADN+zxfnWKmjcKLuE+gyoGX4kfPCS
-z504qBehrzJaZryPIjFXJHsYDG61jn1ETvpYt1G+YelCtE7vcUNanyOS9waI7hsy
-9CVqAkyuXSHvVMgQH9PRmui3S91xWQI6f2BxbQRXTXlL+JKgKPPfUaO9Jyj42v0c
-G7ZPaDMY5wQlQU1Q8NYAyNcNwqojBGSapNZVlHNxGukggYG9Hhg=
-=9rUH
+wsFzBAEBCAAdBQJrBxY7FiEEs11utpsE3JtSEYasLAFw7TiTMkUACgkQLAFw7TiT
+MkXQ0A/7BXHxCRxY9t4IDhXL9hpUu+9+DDzf93WPOVHYq8CHw3mp9HljZ+DA3QHG
+Dq89mOdga17+vdqr9Ql/VeLeBT/CPJNd7o/T8flSnYEzpQTBdAOOejq/b4yds208
+uFCJn3SyJzbrujGwBisp7CLoAm4giuFCwSX4HzbbQ25nmepxn7DL7kaNOWmErMaw
+E22wEtpJklrqZJoJ1L9kAAKDGeQhX5+i/ZXVrLUsxdTCL5TdJ6wK41DJBaNYRIWa
+agf36F9ImVue4AX+ufcOZcHTeeLR2lKgenUg9TBW3a3EkaUFdZcrF+rDR+ivjDyy
+oZX2FUfc86HLcEC3zfCiBaZRmVk9Q/Ft7NCnNGBqmmxovUtGC7V1wOxVJf24h+UY
+XF+Kb9kxRpf9tdiMGe9ICN9X80U1isMUESqaomYTrgaWywWafpylqXISK3Ca5uM4
+v08D2TFIhv0HGS/ajn4qIH6CUc3SIPCkkjuloYZQ6GrIYr0sxjEPwjyE4/+/YcWF
+Hq+WpODbhZQTIX/7Hlfso6hioZ+ast1fiZCl14ZwhiyIEYnDQPaMOwnSwvzQ22Ov
+uMeHB/qj0knQC+MkHRlpnngA7BHTIkJsy0+nXOKHehdjG9fH2zWzMwfSiCmCocQY
+4ZzmAIfA9ssTpYgHIk1fZDcF3zuxcS/C5eFPi/vxxMfb+pwxjto=
+=lnen
 -----END PGP SIGNATURE-----

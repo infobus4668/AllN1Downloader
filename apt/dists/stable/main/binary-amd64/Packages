@@ -1,5 +1,5 @@
 Package: alln1downloader
-Version: 1.0.1
+Version: 1.0.3
 Section: video
 Priority: optional
 Architecture: amd64
@@ -8,9 +8,7 @@ Suggests: nodejs (>= 20)
 Maintainer: AllN1Downloader maintainers
 Description: Local web-interface media downloader powered by yt-dlp
  Download media to the current user's machine using a loopback-only web interface.
-Filename: pool/main/alln1downloader_1.0.1_amd64.deb
-Size: 38958608
-MD5sum: 2f2c7eaff32dd651e633b990d85e5df4
-SHA1: 9bdec6657147c71c1b564418e4050bb58c5d5a41
-SHA256: 0212595b2b1d13ff4aecab9f33fe5221637ea325d62e86d7eda9d6cf58934a02
+Filename: pool/main/alln1downloader_1.0.3_amd64.deb
+Size: 38962094
+SHA256: 313df050846500dfc0d8de20f6a4882be8b363ba341260aab7decc0fc3c17263
 
