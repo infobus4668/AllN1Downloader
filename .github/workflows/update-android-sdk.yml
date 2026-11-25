@@ -35,6 +35,8 @@ jobs:
         run: bash android/gradlew -p android --no-daemon assembleDebug assembleDebugAndroidTest lintDebug -PchaquopyBuildPython=python
       - uses: reactivecircus/android-emulator-runner@v2
         if: steps.sdk.outputs.changed == 'true'
+        env:
+          ANDROID_I_WANT_MY_TCG: 'yes'
         with:
           api-level: 36
           target: google_apis
