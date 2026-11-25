@@ -1,4 +1,14 @@
-# AllN1Downloader 1.0.1 — release and update guide
+# AllN1Downloader — release and update guide
+
+## 1.0.2 changes
+
+- Update checks validate the expected repository, release tag and package name.
+  Windows also requires a SHA-256 match before checking the pinned Authenticode
+  signer. Android retains its package ID and signing identity and uses `versionCode` 5.
+- Preferences distinguishes a missing release or package from an unavailable
+  check and stops polling if a check does not complete.
+- Pull requests always use the GitHub-hosted Android runner, even if a custom
+  runner is configured for maintainer-triggered builds.
 
 **Deployment:** one application process, one OS user, loopback only. Run from
 a writable directory. Desktop actions use the user's file manager/player; the

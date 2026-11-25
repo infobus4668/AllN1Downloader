@@ -20,12 +20,12 @@ Built on the best open-source tools available:
 - **[FastAPI](https://fastapi.tiangolo.com/)** + vanilla JS — a tiny local
   backend and a dependency-free frontend.
 
-## Latest release: 1.0.1
+## Downloads
 
 - [Windows x64](https://github.com/infobus4668/AllN1Downloader/releases/latest/download/AllN1Downloader-Windows-x64.exe)
 - [Android APK](https://github.com/infobus4668/AllN1Downloader/releases/latest/download/AllN1Downloader-Android.apk)
 - [Android App Bundle](https://github.com/infobus4668/AllN1Downloader/releases/latest/download/AllN1Downloader-Android.aab)
-- [Debian/Ubuntu amd64 package](https://github.com/infobus4668/AllN1Downloader/releases/latest/download/alln1downloader_1.0.1_amd64.deb)
+- [Debian/Ubuntu amd64 package (under release assets)](https://github.com/infobus4668/AllN1Downloader/releases/latest)
 
 The Debian package configures the [signed APT repository](https://infobus4668.github.io/AllN1Downloader/apt).
 
@@ -124,7 +124,7 @@ outside the application bundle. The existing `AllInOne` data folder and
   declares FFmpeg as a dependency.
 - With the required publisher secrets configured, pushing a `v*` tag runs the
   signed Windows, Android and Debian release workflow and publishes the APT
-  repository. The current `v1.0.1` release is available from the links above.
+  repository. The latest published release is available from the links above.
   Dependabot and the Android SDK updater open dependency-update PRs weekly.
 - **Standalone Android APK:** uses an on-device Python 3.12 runtime and local
   loopback server; downloads and history stay on the phone. Build with Android
@@ -149,7 +149,8 @@ outside the application bundle. The existing `AllInOne` data folder and
 - The Android workflow builds a debug APK and compiles the instrumentation test.
   Set `ANDROID_EMULATOR_TESTS=true` and `ANDROID_RUNNER` to a Linux runner label
   with emulator hardware acceleration to run the API 36 smoke test; the current
-  hosted runner could not boot its software-only emulator.
+  hosted runner could not boot its software-only emulator. Pull requests always
+  use a GitHub-hosted runner and perform build and lint checks.
 
 ### Publisher signing
 

@@ -32,8 +32,8 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-APP_VERSION = "1.0.1"
-UPDATE_REPOSITORY = os.environ.get("ALLN1_UPDATE_REPOSITORY", "infobus4668/AllN1Downloader")
+APP_VERSION = "1.0.2"
+UPDATE_REPOSITORY = os.environ.get("ALLN1_UPDATE_REPOSITORY", update_service.DEFAULT_REPOSITORY)
 UPDATE_LOCK = threading.Lock()
 UPDATE_STATE: Dict[str, Any] = {
     "status": "idle",
@@ -45,8 +45,6 @@ UPDATE_STATE: Dict[str, Any] = {
     "asset_name": "",
     "asset_url": "",
     "asset_digest": "",
-    "downloaded": False,
-    "pending_path": "",
 }
 BASE_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent)).resolve()
 
@@ -1008,10 +1006,8 @@ def check_for_application_updates() -> None:
                 try:
                     executable = Path(sys.executable).resolve()
                     pending = update_service.download_windows_update(
-                        update["asset_url"], update.get("asset_digest", ""), executable, WORK_DIR
+                        update["asset_url"], update.get("asset_digest", ""), WORK_DIR
                     )
-                    update["downloaded"] = True
-                    update["pending_path"] = str(pending)
                     persist_jobs()
                     update_service.launch_windows_replacement(pending, executable, os.getpid())
                     update["status"] = "installing"
@@ -1029,7 +1025,7 @@ def check_for_application_updates() -> None:
             "current_version": APP_VERSION,
             "latest_version": "",
             "available": False,
-            "release_url": f"https://github.com/{UPDATE_REPOSITORY}/releases/latest",
+            "release_url": "",
             "asset_name": "",
             "asset_url": "",
             "asset_digest": "",
@@ -1138,14 +1134,15 @@ def apply_application_update() -> Dict[str, Any]:
         return {"status": "manual", "release_url": update.get("release_url", "")}
 
     if os.name == "nt":
+        if update.get("status") == "installing":
+            return {"status": "restarting", "version": update.get("latest_version", "")}
         with jobs_lock:
             if any(job.status in ACTIVE_STATUSES for job in jobs.values()):
                 raise HTTPException(status_code=409, detail="Finish active downloads before updating")
         try:
             executable = Path(sys.executable).resolve()
-            pending = Path(update.get("pending_path", ""))
-            downloaded = pending if pending.is_file() else update_service.download_windows_update(
-                update["asset_url"], update.get("asset_digest", ""), executable, WORK_DIR
+            downloaded = update_service.download_windows_update(
+                update["asset_url"], update.get("asset_digest", ""), WORK_DIR
             )
             persist_jobs()
             update_service.launch_windows_replacement(downloaded, executable, os.getpid())

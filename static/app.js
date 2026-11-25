@@ -1517,7 +1517,8 @@ function renderHealthInfo(health) {
   if (health.update) {
     const updateStatus = health.update.available
       ? `Version ${health.update.latest_version} available`
-      : health.update.status === "current" ? "Up to date" : health.update.status === "checking" ? "Checking…" : "Unavailable";
+      : ({ current: "Up to date", checking: "Checking…", no_release: "No release published",
+           release_asset_missing: "No package for this platform" })[health.update.status] || "Unavailable";
     addInfoRow("App updates", updateStatus);
   }
   addInfoRow(
@@ -1585,18 +1586,23 @@ function renderUpdateButton() {
   updateBtn.title = `Current version ${update.current_version}; ${update.latest_version} is available`;
 }
 
-async function refreshUpdateStatus() {
+async function refreshUpdateStatus(attemptsRemaining = 8) {
+  let update;
   try {
-    state.update = await api("/api/update");
-    if (state.health) {
-      state.health = { ...state.health, update: state.update };
-      renderHealthInfo(state.health);
-    }
-    renderUpdateButton();
-    if (state.update.status === "checking") setTimeout(refreshUpdateStatus, 2500);
+    update = await api("/api/update", { signal: AbortSignal.timeout(4000) });
   } catch {
-    // Update service is optional; don't interrupt downloads if it is offline.
+    update = { status: "unavailable", available: false };
   }
+  if (update.status === "checking" && attemptsRemaining <= 1) {
+    update = { ...update, status: "unavailable", available: false };
+  }
+  state.update = update;
+  if (state.health) {
+    state.health = { ...state.health, update };
+    renderHealthInfo(state.health);
+  }
+  renderUpdateButton();
+  if (update.status === "checking") setTimeout(() => refreshUpdateStatus(attemptsRemaining - 1), 2500);
 }
 
 async function applyApplicationUpdate() {

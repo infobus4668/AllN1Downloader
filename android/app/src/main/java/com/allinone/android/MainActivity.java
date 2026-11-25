@@ -112,7 +112,10 @@ public final class MainActivity extends ComponentActivity {
                  ByteArrayOutputStream output = new ByteArrayOutputStream()) {
                 byte[] buffer = new byte[8192];
                 int count;
-                while ((count = input.read(buffer)) >= 0) output.write(buffer, 0, count);
+                while ((count = input.read(buffer)) >= 0) {
+                    if (output.size() + count > 1024 * 1024) throw new IOException("Release metadata is too large");
+                    output.write(buffer, 0, count);
+                }
                 release = new JSONObject(output.toString(StandardCharsets.UTF_8.name()));
             } finally {
                 releaseConnection.disconnect();
@@ -121,7 +124,9 @@ public final class MainActivity extends ComponentActivity {
             PackageInfo installed = getPackageManager().getPackageInfo(getPackageName(), PackageManager.GET_SIGNING_CERTIFICATES);
             long installedCode = installed.getLongVersionCode();
             String installedName = installed.versionName == null ? "" : installed.versionName;
-            String tag = release.optString("tag_name", "").replaceFirst("^[vV]", "");
+            String releaseTag = release.optString("tag_name", "");
+            if (!releaseTag.matches("v?[0-9]{1,9}(\\.[0-9]{1,9}){1,3}")) return;
+            String tag = releaseTag.replaceFirst("^v", "");
             JSONArray assets = release.optJSONArray("assets");
             String apkUrl = null;
             if (assets != null) {
@@ -133,7 +138,9 @@ public final class MainActivity extends ComponentActivity {
                     }
                 }
             }
-            if (apkUrl == null || tag.equals(installedName)) return;
+            String expectedUrl = "https://github.com/" + UPDATE_REPOSITORY + "/releases/download/"
+                    + releaseTag + "/AllN1Downloader-Android.apk";
+            if (!expectedUrl.equals(apkUrl) || tag.equals(installedName)) return;
 
             File updateDir = new File(getFilesDir(), "updates");
             if (!updateDir.exists() && !updateDir.mkdirs()) return;
