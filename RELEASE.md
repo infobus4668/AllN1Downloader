@@ -1,5 +1,20 @@
 # AllN1Downloader — release and update guide
 
+## 1.1.0 changes
+
+- Added original image and document downloads, plus a shared direct-file path
+  for supported video and audio files. The link picker and batch queue include
+  **Auto detect**, **Images** and **Documents**.
+- Added Wikimedia Commons, Internet Archive and arXiv adapters, plus a bounded
+  list of eligible files linked from a public page.
+- See [verified sources and limits](DOWNLOAD_PLAN.md).
+- Android opens the system file picker for `cookies.txt`. Original-file
+  downloads now handle compressed responses, prefer recognized response types
+  over mismatched filename extensions, and distinguish collection entries whose
+  URLs differ by query parameters.
+- Debian CI checks startup and loopback URL protection from the executable
+  extracted from the actual package.
+
 ## 1.0.3 changes
 
 - Instagram-style media formats stay selectable even if the source does not

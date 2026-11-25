@@ -43,7 +43,7 @@ cat > "$STAGE/usr/share/applications/alln1downloader.desktop" <<'DESKTOP'
 [Desktop Entry]
 Type=Application
 Name=AllN1Downloader
-Comment=Download media with yt-dlp
+Comment=Download video, audio, images and documents
 Exec=alln1downloader
 Terminal=false
 Categories=AudioVideo;Video;
@@ -57,8 +57,8 @@ Architecture: $ARCH
 Depends: ffmpeg, xdg-utils
 Suggests: nodejs (>= 20)
 Maintainer: AllN1Downloader maintainers
-Description: Local web-interface media downloader powered by yt-dlp
- Download media to the current user's machine using a loopback-only web interface.
+Description: Local downloader for video, audio, images and documents
+ Download files to the current user's machine using a loopback-only web interface.
 CONTROL
 mkdir -p dist
 dpkg-deb --build --root-owner-group "$STAGE" "dist/alln1downloader_${VERSION}_${ARCH}.deb"

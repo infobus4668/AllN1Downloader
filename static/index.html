@@ -70,7 +70,7 @@
       <span class="hero-kicker"><span class="kicker-dot"></span> A simpler way to save media</span>
       <span class="privacy-note">Your downloads stay on this device</span>
     </div>
-    <h1>Videos and audio,<br><span class="grad">ready when you are.</span></h1>
+    <h1>Media and files,<br><span class="grad">ready when you are.</span></h1>
     <p class="lede">Paste a link, choose what you want, and download. AllN1Downloader takes care of the format details.</p>
     <ol class="how-steps" aria-label="How downloading works">
       <li><span>1</span>Paste a link</li>
@@ -88,10 +88,16 @@
         <path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07L11.4 4.53" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
         <path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07l1.41-1.41" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
       </svg>
-      <input id="urlInput" type="text" inputmode="url" aria-describedby="analysisStatus" placeholder="Paste a video or playlist link…" spellcheck="false" aria-label="Media URL">
+      <input id="urlInput" type="text" inputmode="url" aria-describedby="analysisStatus" placeholder="Paste a video, audio, image, or document link…" spellcheck="false" aria-label="Download URL">
       <button type="button" class="btn ghost" id="pasteBtn">Paste</button>
       <button type="submit" class="btn primary" id="analyzeBtn"><span>Analyze</span></button>
     </form>
+    <div class="select-wrap" id="analysisModeWrap">
+      <select id="analysisMode" aria-label="Link type">
+        <option value="auto">Auto detect</option><option value="video">Video</option><option value="audio">Audio</option>
+        <option value="image">Images</option><option value="document">Documents</option>
+      </select>
+    </div>
     <p class="form-feedback" id="analysisStatus" role="status"></p>
 
     <div class="batch-box hidden" id="batchBox">
@@ -99,8 +105,11 @@
       <div class="batch-options">
         <div class="select-wrap">
           <select id="batchMode" aria-label="Batch download type">
+            <option value="auto">Auto detect (mixed links)</option>
             <option value="video">Video</option>
             <option value="audio">Audio only</option>
+            <option value="image">Images</option>
+            <option value="document">Documents</option>
           </select>
         </div>
         <div class="select-wrap" id="batchQualityWrap">
@@ -154,7 +163,8 @@
         <h2 id="mediaTitle"></h2>
         <div class="media-meta" id="mediaMeta"></div>
 
-        <div class="options">
+        <p class="estimate hidden" id="originalFileInfo"></p>
+        <div class="options" id="mediaOptions">
           <div class="opt-group">
             <span class="opt-label">Download type</span>
             <div class="segmented" id="modeSwitch" role="tablist" aria-label="Download type">

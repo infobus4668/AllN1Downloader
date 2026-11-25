@@ -1,3 +1,4 @@
 yt-dlp==2026.11.23
 fastapi==0.165.0
 uvicorn==0.54.0
+requests==2.34.2

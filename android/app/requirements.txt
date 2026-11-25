@@ -3,3 +3,4 @@ fastapi==0.125.0
 pydantic==1.10.27
 uvicorn==0.54.0
 certifi==2026.11.20
+requests==2.34.2

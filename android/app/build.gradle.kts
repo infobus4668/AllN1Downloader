@@ -9,6 +9,7 @@ plugins {
 
 val syncDesktopBackend = tasks.register<Copy>("syncDesktopBackend") {
     from(rootProject.file("../app.py"))
+    from(rootProject.file("../file_downloads.py"))
     from(rootProject.file("../update_service.py"))
     into(layout.buildDirectory.dir("generated/chaquopy/main"))
 }
@@ -51,8 +52,8 @@ android {
         minSdk = 29
         targetSdk = 37
         // Keep the existing applicationId/signing key so users can update their installation.
-        versionCode = 6
-        versionName = "1.0.3"
+        versionCode = 7
+        versionName = "1.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += setOf("arm64-v8a", "x86_64") }
     }

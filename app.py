@@ -27,6 +27,8 @@ from urllib.parse import quote, urlparse
 
 import yt_dlp
 import update_service
+import file_downloads
+import requests
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
@@ -34,7 +36,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from yt_dlp.cookies import CookieLoadError, YoutubeDLCookieJar, load_cookies
 
-APP_VERSION = "1.0.3"
+APP_VERSION = "1.1.0"
 UPDATE_REPOSITORY = os.environ.get("ALLN1_UPDATE_REPOSITORY", update_service.DEFAULT_REPOSITORY)
 UPDATE_LOCK = threading.Lock()
 UPDATE_STATE: Dict[str, Any] = {
@@ -140,6 +142,7 @@ MAX_STATE_JOBS = 300
 ACTIVE_STATUSES = {"queued", "downloading", "processing"}
 TERMINAL_STATUSES = {"completed", "error", "cancelled"}
 PLAYABLE_EXTENSIONS = {".mp4", ".m4v", ".mkv", ".webm", ".mov", ".avi", ".mp3", ".m4a", ".aac", ".ogg", ".opus", ".flac", ".wav"}
+OPENABLE_EXTENSIONS = PLAYABLE_EXTENSIONS | {f".{ext}" for ext in file_downloads.FILE_EXTENSIONS}
 VIDEO_CODEC_LABELS = {"h264": "H.264", "h265": "H.265", "vp9": "VP9", "av1": "AV1"}
 AUDIO_CODEC_LABELS = {"aac": "AAC", "mp3": "MP3", "opus": "Opus", "vorbis": "Vorbis", "flac": "FLAC", "wav": "PCM", "alac": "ALAC"}
 
@@ -642,6 +645,7 @@ class Job:
                 "file_count": len(files),
                 "total_size": total_size,
                 "has_playable": any(Path(item["rel"]).suffix.lower() in PLAYABLE_EXTENSIONS for item in files),
+                "has_openable": any(Path(item["rel"]).suffix.lower() in OPENABLE_EXTENSIONS for item in files),
                 "can_retry": self.status in TERMINAL_STATUSES and (self.future is None or self.future.done()),
                 "media": self.media,
                 "log_count": len(self.logs),
@@ -845,7 +849,7 @@ def make_pp_hook(job: Job):
 
 def build_ydl_options(job: Job) -> Dict[str, Any]:
     opts = job.options
-    mode = opts["mode"]
+    mode = "video" if opts["mode"] == "auto" else opts["mode"]
     container = opts["container"]
     codec = opts.get("codec") or "auto"
     if opts.get("is_playlist"):
@@ -937,6 +941,70 @@ def build_ydl_options(job: Job) -> Dict[str, Any]:
     return ydl_opts
 
 
+def file_session(browser, text, proxy):
+    options = cookie_options(browser, text)
+    cookies = None
+    if options:
+        with yt_dlp.YoutubeDL({"quiet": True}) as ydl:
+            prepare_cookie_jar(ydl, options)
+            cookies = ydl.cookiejar
+    session = file_downloads.session_for(cookies)
+    if proxy:
+        session.proxies.update({"http": proxy, "https": proxy})
+    return session
+
+
+def file_key(item):
+    parsed = urlparse(item.url)
+    return hashlib.sha256(f"{parsed.scheme}://{parsed.netloc}{parsed.path}?{parsed.query}\n{item.kind}\n{item.name}".encode()).hexdigest()
+
+
+def run_original_files(job: Job) -> bool:
+    mode = job.options["mode"]
+    cancelled = job.cancel_event.is_set
+    try:
+        with file_session(job.options.get("cookies_browser"), job.cookie_text, job.options.get("proxy")) as session:
+            try:
+                items, source = file_downloads.resolve_files(job.url, mode, session, cancelled)
+            except (file_downloads.FileDownloadError, requests.RequestException):
+                if (mode != "auto" or job.options.get("original_files")
+                        or file_downloads.known_collection(job.url) or file_downloads.looks_like_file(job.url)):
+                    raise
+                return False  # Let yt-dlp handle generic media pages that did not resolve as files.
+            if not items:
+                return False
+            keys = set(job.options.get("file_keys") or ())
+            if keys:
+                items = [item for item in items if file_key(item) in keys]
+                if {file_key(item) for item in items} != keys:
+                    raise file_downloads.FileDownloadError("The collection changed. Analyze the link again to select its files.")
+            job.add_log(f"{source}: {len(items)} original file(s)")
+            rate = job.options.get("ratelimit")
+            consumed = 0
+            for index, item in enumerate(items):
+                if cancelled():
+                    raise InterruptedError
+                with job.lock:
+                    job.current_item = item.name
+                    job.playlist_index, job.playlist_count = index + 1, len(items)
+
+                def progress(done, total):
+                    with job.lock:
+                        job.downloaded, job.total = done, total
+                        job.progress = min(99, (index + (done / total if total else 0)) / len(items) * 100)
+
+                remaining = min(file_downloads.MAX_FILE, file_downloads.MAX_JOB_BYTES - consumed)
+                if remaining <= 0:
+                    raise file_downloads.FileDownloadError("The collection reached the 2 GB limit.")
+                consumed += file_downloads.save_file(item, session, job.dir, cancelled, progress,
+                                                     int(rate) if rate else None, remaining)
+    except requests.RequestException as exc:
+        status = getattr(exc.response, "status_code", None)
+        detail = (f"The file server returned HTTP {status}." if status else "The file server could not be reached or the transfer ended early.")
+        raise file_downloads.FileDownloadError(detail) from None
+    return True
+
+
 def run_job(job: Job) -> None:
     with job.lock:
         job.status = "downloading"
@@ -945,11 +1013,19 @@ def run_job(job: Job) -> None:
     try:
         if job.cancel_event.is_set():
             raise yt_dlp.utils.DownloadCancelled("Cancelled before download")
-        options = build_ydl_options(job)
-        with yt_dlp.YoutubeDL(options) as ydl:
-            prepare_cookie_jar(ydl, options)
-            if ydl.download([job.url]):
-                raise RuntimeError("The downloader reported an incomplete download. See Logs for details.")
+        mode = job.options.get("mode", "video")
+        original = job.options.get("original_files", False)
+        downloaded = False
+        if original or mode in {"auto", "image", "document"}:
+            downloaded = run_original_files(job)
+            if not downloaded and (original or mode != "auto"):
+                raise file_downloads.FileDownloadError("No supported original files were found for the selected type.")
+        if not downloaded:
+            options = build_ydl_options(job)
+            with yt_dlp.YoutubeDL(options) as ydl:
+                prepare_cookie_jar(ydl, options)
+                if ydl.download([job.url]):
+                    raise RuntimeError("The downloader reported an incomplete download. See Logs for details.")
         if job.cancel_event.is_set():
             with job.lock:
                 job.status = "cancelled"
@@ -1013,6 +1089,7 @@ def get_job(job_id: str) -> Job:
 
 class InfoRequest(BaseModel):
     url: str
+    mode: Optional[str] = None
     cookies_browser: Optional[str] = None
     cookies_text: Optional[str] = Field(default=None, max_length=MAX_COOKIE_FILE)
     proxy: Optional[str] = None
@@ -1041,6 +1118,8 @@ class DownloadRequest(BaseModel):
     title: Optional[str] = None
     thumbnail: Optional[str] = None
     force: bool = False
+    original_files: bool = False
+    file_keys: Optional[List[str]] = None
 
 
 def update_snapshot() -> Dict[str, Any]:
@@ -1228,6 +1307,33 @@ def apply_application_update() -> Dict[str, Any]:
 @app.post("/api/info")
 def get_info(req: InfoRequest) -> Dict[str, Any]:
     url = validate_url(req.url)
+    if req.mode not in {None, "auto", "video", "audio", "image", "document"}:
+        raise HTTPException(status_code=400, detail="Invalid analysis type")
+    if req.mode in {"auto", "image", "document"}:
+        try:
+            with file_session(req.cookies_browser, req.cookies_text, requested_proxy(req.proxy)) as session:
+                items, source = file_downloads.resolve_files(url, req.mode, session)
+            if items:
+                return {
+                    "title": items[0].name if len(items) == 1 else f"{source} collection",
+                    "extractor": source, "webpage_url": url,
+                    "original_files": True, "source_mode": req.mode, "is_playlist": len(items) > 1,
+                    "entries": [{"index": index, "key": file_key(item), "title": item.name,
+                                 "kind": item.kind, "size": item.size,
+                                 "thumbnail": clean_thumbnail(item.url) if item.kind == "image" and req.cookies_text is None
+                                 and not req.cookies_browser and not urlparse(item.url).query else None}
+                                for index, item in enumerate(items, 1)],
+                }
+        except CookieLoadError:
+            detail = "Could not load the selected cookies.txt file." if req.cookies_text is not None else cookie_failure_message()
+            raise HTTPException(status_code=400, detail=detail) from None
+        except (file_downloads.FileDownloadError, requests.RequestException) as exc:
+            ext = file_downloads.extension(urlparse(url).path)
+            if req.mode != "auto" or file_downloads.FILE_EXTENSIONS.get(ext) in {"image", "document"}:
+                detail = str(exc) if isinstance(exc, file_downloads.FileDownloadError) else "Could not read this file or source. Check the link and your access."
+                raise HTTPException(status_code=400, detail=detail) from None
+        if req.mode != "auto":
+            raise HTTPException(status_code=400, detail="No supported files were found for the selected type.")
     ydl_opts: Dict[str, Any] = {
         "quiet": True,
         "noprogress": True,
@@ -1327,10 +1433,11 @@ def create_download(req: DownloadRequest) -> Dict[str, Any]:
     url = validate_url(req.url)
     cookie_options(req.cookies_browser, req.cookies_text)
     mode = (req.mode or "video").lower()
-    if mode not in ("video", "audio"):
+    if mode not in ("video", "audio", "auto", "image", "document"):
         raise HTTPException(status_code=400, detail="Invalid download type")
-    container = (req.container or ("mp4" if mode == "video" else "mp3")).lower()
-    if container not in (VIDEO_CONTAINERS if mode == "video" else AUDIO_CONTAINERS):
+    originals = req.original_files or mode in {"image", "document"}
+    container = "original" if originals else "mkv" if mode == "auto" else (req.container or ("mp4" if mode == "video" else "mp3")).lower()
+    if not originals and container not in (AUDIO_CONTAINERS if mode == "audio" else VIDEO_CONTAINERS):
         raise HTTPException(status_code=400, detail="Invalid output format")
     quality = normalize_quality(req.quality)
     codec = req.codec if req.codec in CODEC_FILTERS else "auto"
@@ -1377,6 +1484,13 @@ def create_download(req: DownloadRequest) -> Dict[str, Any]:
     }
     if req.cookies_text is not None:
         options["uses_cookie_file"] = True
+    if originals:
+        options["original_files"] = True
+    if req.file_keys is not None:
+        if not originals or not 1 <= len(req.file_keys) <= file_downloads.MAX_ITEMS or any(
+                not re.fullmatch(r"[0-9a-f]{64}", key) for key in req.file_keys):
+            raise HTTPException(status_code=400, detail="Invalid file selection. Analyze the link again.")
+        options["file_keys"] = sorted(set(req.file_keys))
     job = Job(
         url=url,
         options=options,
@@ -1530,9 +1644,9 @@ def download_file(job_id: str, file_path: str) -> FileResponse:
     target = (base / file_path).resolve()
     if target != base and base not in target.parents:
         raise HTTPException(status_code=404, detail="File not found")
-    if not target.is_file():
+    if not target.is_file() or target.name.lower().endswith(".part"):
         raise HTTPException(status_code=404, detail="File not found")
-    return FileResponse(target, filename=target.name)
+    return FileResponse(target, filename=target.name, headers={"X-Content-Type-Options": "nosniff"})
 
 
 class ArchiveResponse(StreamingResponse):
@@ -1600,9 +1714,9 @@ def open_job_file(job_id: str, path: Optional[str] = None) -> Dict[str, Any]:
     if path:
         target = (base / path).resolve()
     else:
-        target = next((p.resolve() for p in collect_files(base) if p.suffix.lower() in PLAYABLE_EXTENSIONS), base)
-    if base not in target.parents or not target.is_file() or target.suffix.lower() not in PLAYABLE_EXTENSIONS:
-        raise HTTPException(status_code=400, detail="No supported media file to open. Use Open folder instead.")
+        target = next((p.resolve() for p in collect_files(base) if p.suffix.lower() in OPENABLE_EXTENSIONS), base)
+    if base not in target.parents or not target.is_file() or target.suffix.lower() not in OPENABLE_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="No supported file to open. Use Open folder instead.")
     if ANDROID_MODE:
         return {"ok": True, "path": str(target)}
     try:

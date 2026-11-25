@@ -56,7 +56,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: sudo apt-get update && sudo apt-get install -y ffmpeg xdg-utils dpkg-dev gnupg
+      - run: |
+          if ! command -v ffmpeg || ! command -v xdg-open || ! command -v dpkg-deb || ! command -v gpg; then
+            sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 update
+            sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 install -y ffmpeg xdg-utils dpkg-dev gnupg
+          fi
       - run: python -m pip install -r requirements.txt -r packaging/requirements-build.txt
       - run: bash packaging/build_linux.sh
         env:
@@ -64,6 +68,8 @@ jobs:
           DEB_SIGNING_KEY_ID: ${{ secrets.DEB_SIGNING_KEY_ID }}
           DEB_SIGNING_PASSPHRASE: ${{ secrets.DEB_SIGNING_PASSPHRASE }}
           REQUIRE_DEB_SIGNING: ${{ startsWith(github.ref, 'refs/tags/') && '1' || '0' }}
+      - name: Smoke-test the packaged executable
+        run: python packaging/smoke_debian.py dist/alln1downloader_*_amd64.deb
       - uses: actions/upload-artifact@v4
         with:
           name: alln1downloader-deb-amd64

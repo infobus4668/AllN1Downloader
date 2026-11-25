@@ -22,7 +22,7 @@ outside the repository.
 
 | Platform | Local files | Identity and verification | Current status |
 |---|---|---|---|
-| Android | `android-release.p12`; `android-release-credentials.xml` | Alias `allinone-release`; RSA 4096; certificate SHA-256 `04443938D6DD999B672D3EFE481D8091AF3D91D5396CACF9988D005BCAE4F279`; valid through 2054-04-11. | AllN1Downloader 1.0.1 signed APK/AAB use `versionCode` 4 and preserve the previous application ID/signing identity for upgrades. |
+| Android | `android-release.p12`; `android-release-credentials.xml` | Alias `allinone-release`; RSA 4096; certificate SHA-256 `04443938D6DD999B672D3EFE481D8091AF3D91D5396CACF9988D005BCAE4F279`; valid through 2054-04-11. | The APK and AAB preserve the application ID and signing identity for upgrades. `versionCode` is set in `android/app/build.gradle.kts`. |
 | Debian | `debian-signing-private.asc`; `debian-signing-public.asc`; `debian-release-credentials.xml`; `gnupg/` | Legacy user ID `AllInOne Debian Release Signing`; fingerprint `B35D6EB69B04DC9B521186AC2C0170ED38933245`; five-year expiration. | Private export was imported into a clean GPG home and test-signature verified. |
 | Windows | `windows-alln1-selfsigned.pfx`; `windows-alln1-credentials.xml` | Subject `CN=AllN1Downloader Self-Signed Code Signing`; thumbprint `9F1BFF66846716DC3E579D9F61E7A412D36E6336`; expires 2031-11-24. | The new EXE is timestamped and smoke-tested. Its self-signed publisher is **not trusted by Windows**; the updater pins this signer identity. |
 
@@ -204,8 +204,8 @@ $password = $null
 ```
 
 The expected status remains untrusted-root `UnknownError`; the signer and
-timestamp should be present. Do not configure this PFX as the public-release
-GitHub signing secret.
+timestamp should be present. This pinned PFX can sign releases, but it does
+not provide Windows public publisher trust.
 
 ## Temporary dependency cleanup
 

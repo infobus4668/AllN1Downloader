@@ -88,9 +88,10 @@ for those resolver updates.
 ## Current pins
 
 - Desktop runtime: yt-dlp `2026.11.23`, FastAPI `0.165.0`, Uvicorn `0.54.0`
-  in `requirements.txt`.
+  and Requests `2.34.2` in `requirements.txt`.
 - Android Python runtime: yt-dlp `2026.11.23`, FastAPI `0.125.0` (Pydantic v1
-  compatible), Pydantic `1.10.27`, Uvicorn `0.54.0`, certifi `2026.11.20` in
+  compatible), Pydantic `1.10.27`, Uvicorn `0.54.0`, certifi `2026.11.20` and
+  Requests `2.34.2` in
   `android/app/requirements.txt`.
 - Build-time Python tool: PyInstaller `6.22.3` in
   `packaging/requirements-build.txt`.

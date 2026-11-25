@@ -1,6 +1,6 @@
 # AllN1Downloader
 
-A local-first video and audio downloader for desktop and Android, with a
+A local-first video, audio, image, and document downloader for desktop and Android, with a
 loopback web interface. See the
 [release notes and verification guide](RELEASE.md) for the supported deployment,
 checks and backup procedure.
@@ -30,6 +30,17 @@ Built on the best open-source tools available:
 The Debian package configures the [signed APT repository](https://infobus4668.github.io/AllN1Downloader/apt).
 
 ## Features
+
+- **Auto detect** handles direct file links and supported collections. **Video**
+  and **Audio** offer media conversion; **Images** and **Documents** find
+  original files, including eligible links published on a public page.
+- Original JPEG, PNG, GIF, WebP, PDF, EPUB, TXT, CSV, modern Office and
+  OpenDocument downloads. Wikimedia Commons file and category pages, Internet
+  Archive items and arXiv abstract links have dedicated adapters.
+- Mixed batches share the queue, cancellation, retry and export tools. For a
+  collection, analyze the link first if you want to choose individual files.
+  File transfers are limited to 512 MB per file and 2 GB per job. See the
+  [download plan and verified sources](DOWNLOAD_PLAN.md) for details.
 
 - Video downloads up to 4K/8K, merged automatically with FFmpeg
 - Codec-aware quality picker (H.264, VP9, AV1, HEVC) with size estimates

@@ -299,6 +299,27 @@ try {
   await until(() => run(`requestCookies().cookies_text?.startsWith('# Netscape')`));
   await run(`clearCookieFile.click()`);
   assert.ok(await run(`!('cookies_text' in requestCookies())`));
+  await run(`renderMedia({original_files:true,is_playlist:true,title:'Mixed collection',extractor:'Fixture',
+    webpage_url:'https://example.test/collection',entries:[
+      {index:1,key:'image-key',title:'photo.png',kind:'image',size:1024},
+      {index:2,key:'document-key',title:'notes.pdf',kind:'document',size:2048},
+    ]}, 'https://example.test/collection');`);
+  assert.ok(await run(`mediaOptions.classList.contains('hidden') && !playlistBox.classList.contains('hidden')`));
+  await run(`playlistList.querySelector('[data-index="1"]').click()`);
+  assert.equal(await run(`downloadBtnText.textContent`), 'Download 1 item');
+  await run(`(async () => { const bodies = []; const fetchBefore = window.fetch;
+    window.fetch = async (input, options) => {
+      if (input === '/api/download' && options?.method === 'POST') {
+        bodies.push(JSON.parse(options.body));
+        return new Response('{}', {headers:{'Content-Type':'application/json'}});
+      }
+      return fetchBefore(input, options);
+    };
+    try { await startDownload(); window.__lastOriginal = bodies[0]; }
+    finally { window.fetch = fetchBefore; }
+  })()`);
+  assert.deepEqual(await run(`window.__lastOriginal.file_keys`), ['document-key']);
+  assert.equal(await run(`window.__lastOriginal.original_files`), true);
   assert.ok(await run(`state.jobs.get('btn-forced').el.querySelector('[data-action="copy"]').classList.contains('hidden')`));
   assert.ok(await run(`window.__buttonCalls.some(call=>call.url.endsWith('/forget')) && window.__buttonCalls.some(call=>call.method==='DELETE') && window.__buttonCalls.some(call=>call.url==='/api/jobs/clear-finished')`));
   assert.deepEqual(errors, []);

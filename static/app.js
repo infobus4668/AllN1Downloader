@@ -11,6 +11,9 @@ const sourceTabs = $("#sourceTabs");
 const batchBox = $("#batchBox");
 const batchInput = $("#batchInput");
 const batchMode = $("#batchMode");
+const analysisMode = $("#analysisMode");
+const mediaOptions = $("#mediaOptions");
+const originalFileInfo = $("#originalFileInfo");
 const batchQuality = $("#batchQuality");
 const batchQualityWrap = $("#batchQualityWrap");
 const batchFormat = $("#batchFormat");
@@ -143,7 +146,7 @@ const DEFAULT_SETTINGS = {
   embed: false,
   notifications: false,
   theme: "violet",
-  batch: { mode: "video", quality: "best", format: "mp4" },
+  batch: { mode: "auto", quality: "best", format: "original" },
 };
 
 const state = {
@@ -643,10 +646,10 @@ function updateSelectionUI() {
     downloadBtn.disabled = false;
     return;
   }
-  const unavailable = !info.is_playlist && state.mode === "video"
+  const unavailable = !info.original_files && !info.is_playlist && state.mode === "video"
     && !expectedVariant(formatSelect.value, codecSelect.value, qualitySelect.value);
   if (!info.is_playlist) {
-    downloadBtnText.textContent = unavailable ? "Format unavailable" : "Download";
+    downloadBtnText.textContent = unavailable ? "Format unavailable" : info.original_files ? "Download original" : "Download";
     downloadBtn.disabled = unavailable;
     return;
   }
@@ -699,7 +702,8 @@ function renderPlaylist(info) {
 
     const duration = document.createElement("span");
     duration.className = "pl-dur";
-    duration.textContent = entry.duration ? formatDuration(entry.duration) : "";
+    duration.textContent = entry.kind ? `${entry.kind}${entry.size ? ` · ${formatBytes(entry.size)}` : ""}`
+      : entry.duration ? formatDuration(entry.duration) : "";
 
     label.append(checkbox, num, thumb, title, duration);
     fragment.append(label);
@@ -715,14 +719,15 @@ function renderPlaylist(info) {
   updateSelectionUI();
 }
 
-function renderMedia(info, sourceUrl) {
+function renderMedia(info, sourceUrl, requestedMode = "auto") {
   state.info = info;
   state.sourceUrl = sourceUrl;
   mediaTitle.textContent = info.title || "Untitled";
 
-  if (info.thumbnail) {
+  const thumbnail = info.thumbnail || (info.original_files && info.entries[0]?.thumbnail);
+  if (thumbnail) {
     thumbWrap.classList.remove("no-thumb");
-    mediaThumb.src = info.thumbnail;
+    mediaThumb.src = thumbnail;
     mediaThumb.onerror = () => thumbWrap.classList.add("no-thumb");
   } else {
     thumbWrap.classList.add("no-thumb");
@@ -740,7 +745,7 @@ function renderMedia(info, sourceUrl) {
   mediaChips.innerHTML = "";
   addChip(info.extractor, true);
   if (info.uploader) addChip(info.uploader);
-  if (info.is_playlist) addChip(`Playlist · ${info.playlist_count || info.entries.length} items`);
+  if (info.is_playlist) addChip(`${info.original_files ? "Collection" : "Playlist"} · ${info.playlist_count || info.entries.length} items`);
   else if (info.qualities?.[0]?.height) addChip(`Up to ${info.qualities[0].height}p`);
   if (info.audio_formats && info.audio_formats.length && info.audio_only) {
     const source = info.source_audio;
@@ -759,29 +764,36 @@ function renderMedia(info, sourceUrl) {
   }
   mediaMeta.textContent = [
     host,
-    info.is_playlist ? "playlist" : info.audio_only ? "audio only" : "video",
+    info.original_files ? (info.is_playlist ? "original files" : info.entries[0].kind)
+      : info.is_playlist ? "playlist" : info.audio_only ? "audio only" : "video",
     info.duration ? formatDuration(info.duration) : "",
   ]
     .filter(Boolean)
     .join(" · ");
 
-  populateQualities(info);
-  qualitySelect.value = "best";
-  const audioOnly = Boolean(info.audio_only);
-  for (const button of modeSwitch.querySelectorAll(".seg")) {
-    button.disabled = audioOnly && button.dataset.mode === "video";
+  mediaOptions.classList.toggle("hidden", Boolean(info.original_files));
+  originalFileInfo.classList.toggle("hidden", !info.original_files);
+  originalFileInfo.textContent = info.original_files
+    ? (info.is_playlist ? "Choose the original files to save." : info.entries[0].size ? formatBytes(info.entries[0].size) : "File size unknown") : "";
+  if (!info.original_files) {
+    populateQualities(info);
+    qualitySelect.value = "best";
+    const audioOnly = Boolean(info.audio_only);
+    for (const button of modeSwitch.querySelectorAll(".seg")) {
+      button.disabled = audioOnly && button.dataset.mode === "video";
+    }
+    setMode(audioOnly || requestedMode === "audio" ? "audio" : "video");
+    subsCheck.checked = false;
+    subLangWrap.classList.add("hidden");
+    subLangSelect.value = "en";
   }
-  setMode(audioOnly ? "audio" : "video");
-  subsCheck.checked = false;
-  subLangWrap.classList.add("hidden");
-  subLangSelect.value = "en";
 
   const isPlaylist = Boolean(info.is_playlist && info.entries && info.entries.length);
   clipStart.value = "";
   clipEnd.value = "";
   clipPrecise.checked = false;
   clipDetails.open = false;
-  clipDetails.classList.toggle("hidden", isPlaylist);
+  clipDetails.classList.toggle("hidden", isPlaylist || Boolean(info.original_files));
   playlistBox.classList.toggle("hidden", !isPlaylist);
   if (isPlaylist) renderPlaylist(info);
   else {
@@ -804,6 +816,7 @@ async function analyze(event) {
   if (event) event.preventDefault();
   if (analyzeBtn.disabled) return;
   const url = urlInput.value.trim();
+  const mode = analysisMode.value;
   const feedback = $("#analysisStatus");
   if (!isMediaLink(url)) {
     feedback.textContent = "Enter a complete link beginning with http:// or https://.";
@@ -813,7 +826,7 @@ async function analyze(event) {
     return;
   }
   setAnalyzing(true);
-  feedback.textContent = "Checking this link for media and available formats…";
+  feedback.textContent = "Looking for downloadable files and formats…";
   urlInput.removeAttribute("aria-invalid");
   mediaCard.classList.add("hidden");
   try {
@@ -821,18 +834,19 @@ async function analyze(event) {
       method: "POST",
       body: JSON.stringify({
         url,
+        mode,
         ...requestCookies(),
         proxy: settings.proxy || null,
       }),
     });
-    if (urlInput.value.trim() !== url || state.source !== "single") {
+    if (urlInput.value.trim() !== url || analysisMode.value !== mode || state.source !== "single") {
       feedback.textContent = "Link changed. Analyze the new link to continue.";
       return;
     }
-    renderMedia(info, url);
+    renderMedia(info, url, mode);
     feedback.textContent = "";
     toast(
-      info.is_playlist ? `Playlist found · ${info.entries.length} items` : "Ready to download",
+      info.is_playlist ? `${info.original_files ? "Collection" : "Playlist"} found · ${info.entries.length} items` : "Ready to download",
       "success"
     );
   } catch (error) {
@@ -848,8 +862,8 @@ async function startDownload() {
   if (!info) return;
 
   const audio = state.mode === "audio";
-  const clipFrom = info.is_playlist ? null : parseClipInput(clipStart.value);
-  const clipTo = info.is_playlist ? null : parseClipInput(clipEnd.value);
+  const clipFrom = info.is_playlist || info.original_files ? null : parseClipInput(clipStart.value);
+  const clipTo = info.is_playlist || info.original_files ? null : parseClipInput(clipEnd.value);
   if (Number.isNaN(clipFrom) || Number.isNaN(clipTo)) {
     clipDetails.open = true;
     toast("Use seconds, mm:ss, or hh:mm:ss for clip times", "error");
@@ -862,7 +876,17 @@ async function startDownload() {
     clipEnd.focus();
     return;
   }
-  const body = {
+  const body = info.original_files ? {
+    url: state.sourceUrl,
+    mode: info.source_mode || "auto",
+    container: "original",
+    original_files: true,
+    file_keys: info.entries.filter(entry => !info.is_playlist || state.selected.has(entry.index)).map(entry => entry.key),
+    ...requestCookies(),
+    proxy: settings.proxy || null,
+    ratelimit: settings.ratelimit ? Number(settings.ratelimit) : null,
+    title: info.title,
+  } : {
     url: info.webpage_url || state.sourceUrl,
     mode: state.mode,
     quality: audio ? "best" : qualitySelect.value || "best",
@@ -884,7 +908,7 @@ async function startDownload() {
     thumbnail: info.thumbnail || null,
   };
 
-  if (info.is_playlist) {
+  if (info.is_playlist && !info.original_files) {
     if (!state.selected.size) {
       toast("Select at least one playlist item", "error");
       return;
@@ -925,16 +949,16 @@ async function startDownload() {
 function syncBatchFormats(preferredFormat) {
   const mode = batchMode.value;
   batchFormat.innerHTML = "";
-  for (const [value, label] of FORMATS[mode]) {
+  for (const [value, label] of FORMATS[mode] || [["original", "Original file"]]) {
     const option = document.createElement("option");
     option.value = value;
     option.textContent = label;
     batchFormat.append(option);
   }
-  const fallback = mode === "video" ? "mp4" : "mp3";
+  const fallback = mode === "video" ? "mp4" : mode === "audio" ? "mp3" : "original";
   const wanted = preferredFormat || fallback;
   batchFormat.value = [...batchFormat.options].some((option) => option.value === wanted) ? wanted : fallback;
-  batchQualityWrap.classList.toggle("hidden", mode === "audio");
+  batchQualityWrap.classList.toggle("hidden", mode !== "video");
   settings.batch = {
     mode,
     quality: batchQuality.value,
@@ -979,7 +1003,7 @@ async function submitBatch() {
         method: "POST",
         body: JSON.stringify({
           url,
-          mode: audio ? "audio" : "video",
+          mode: batchMode.value,
           quality,
           container,
           is_playlist: false,
@@ -1220,7 +1244,7 @@ function updateJobEl(el, job) {
   zipLink.classList.toggle("hidden", !multipleFiles);
   if (multipleFiles) zipLink.href = `/api/jobs/${encodeURIComponent(job.id)}/zip`;
 
-  el.querySelector('[data-action="open-file"]').classList.toggle("hidden", !(isDone && job.has_playable));
+  el.querySelector('[data-action="open-file"]').classList.toggle("hidden", !(isDone && (job.has_openable ?? job.has_playable)));
 }
 
 function matchesFilter(job) {

@@ -15,6 +15,7 @@ import android.os.Environment;
 import android.provider.Settings;
 import android.webkit.DownloadListener;
 import android.webkit.MimeTypeMap;
+import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -23,6 +24,8 @@ import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.activity.ComponentActivity;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.core.content.FileProvider;
 
 import com.chaquo.python.PyObject;
@@ -53,6 +56,16 @@ public final class MainActivity extends ComponentActivity {
     private TextView startupText;
     private int port = FALLBACK_PORT;
     private volatile File pendingUpdateApk;
+    private ValueCallback<Uri[]> cookieFileCallback;
+    private final ActivityResultLauncher<String[]> cookieFilePicker = registerForActivityResult(
+            new ActivityResultContracts.OpenDocument(), uri -> {
+                ValueCallback<Uri[]> callback = cookieFileCallback;
+                cookieFileCallback = null;
+                if (callback != null) {
+                    callback.onReceiveValue(uri != null && "content".equals(uri.getScheme())
+                            ? new Uri[]{uri} : null);
+                }
+            });
 
     int getLocalServerPort() {
         return port;
@@ -311,7 +324,29 @@ public final class MainActivity extends ComponentActivity {
         webView.getSettings().setJavaScriptEnabled(true);
         webView.getSettings().setDomStorageEnabled(true);
         webView.getSettings().setAllowFileAccess(false);
-        webView.setWebChromeClient(new WebChromeClient());
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
+                String currentUrl = view.getUrl();
+                Uri current = currentUrl == null ? Uri.EMPTY : Uri.parse(currentUrl);
+                if (!"http".equals(current.getScheme()) || !"127.0.0.1".equals(current.getHost())
+                        || current.getPort() != port || params.getMode() != FileChooserParams.MODE_OPEN) {
+                    callback.onReceiveValue(null);
+                    return true;
+                }
+                if (cookieFileCallback != null) cookieFileCallback.onReceiveValue(null);
+                cookieFileCallback = callback;
+                try {
+                    // A provider may label a .txt export as text/plain or application/octet-stream.
+                    cookieFilePicker.launch(new String[]{"text/plain", "application/octet-stream"});
+                } catch (ActivityNotFoundException error) {
+                    cookieFileCallback = null;
+                    callback.onReceiveValue(null);
+                    Toast.makeText(MainActivity.this, "No file picker is available", Toast.LENGTH_SHORT).show();
+                }
+                return true;
+            }
+        });
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, android.webkit.WebResourceRequest request) {
@@ -430,6 +465,10 @@ public final class MainActivity extends ComponentActivity {
 
     @Override
     protected void onDestroy() {
+        if (cookieFileCallback != null) {
+            cookieFileCallback.onReceiveValue(null);
+            cookieFileCallback = null;
+        }
         startup.shutdownNow();
         if (webView != null) webView.destroy();
         super.onDestroy();
