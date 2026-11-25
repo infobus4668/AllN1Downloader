@@ -20,16 +20,16 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           name: alln1downloader-android-signed-release
           path: incoming/android
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: alln1downloader-windows-exe
           path: incoming/windows
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: alln1downloader-deb-amd64
           path: incoming/debian
@@ -116,13 +116,13 @@ jobs:
           gpg --batch --yes --armor --output apt-site/apt/AllN1Downloader-Debian-Signing-Key.asc --export "$fingerprint"
           gpg --homedir "$GNUPGHOME" --batch --verify apt-site/apt/dists/stable/InRelease
           gpg --homedir "$GNUPGHOME" --batch --verify release-assets/AllN1Downloader-update-manifest.json.asc release-assets/AllN1Downloader-update-manifest.json
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: apt-site
-      - uses: actions/deploy-pages@v4
+      - uses: actions/deploy-pages@v5
         id: deployment
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           name: AllN1Downloader ${{ github.ref_name }}
