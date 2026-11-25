@@ -27,7 +27,7 @@ jobs:
         run: |
           build_tools=$(cat android/build-tools-version.txt)
           ndk_version=$(cat android/ndk-version.txt)
-          sdkmanager --install 'platforms/android-37.0' "build-tools/$build_tools" "ndk/$ndk_version" 'emulator' 'system-images/android-36/google_apis/x86_64'
+          sdkmanager --install 'platforms;android-37.0' "build-tools;$build_tools" "ndk;$ndk_version" 'emulator' 'system-images;android-36;google_apis;x86_64'
       - uses: gradle/actions/setup-gradle@v4
         if: steps.sdk.outputs.changed == 'true'
       - name: Build, lint and test against updated SDKs
