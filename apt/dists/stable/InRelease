@@ -5,27 +5,27 @@ Origin: AllN1Downloader
 Label: AllN1Downloader
 Suite: stable
 Codename: stable
-Date: Wed, 25 Nov 2026 17:09:13 GMT
+Date: Thu, 26 Nov 2026 10:48:42 GMT
 Architectures: amd64
 Components: main
 Description: AllN1Downloader signed package repository
 SHA256:
- 4225ff161cd1a441dd2e0ab48095c0d0f04d24655bded2fc15599608b6f58f74 478 main/binary-amd64/Packages
- 6577f4ad936b7af314f27bccf4b940ba08c2603a4d93452bf910f54affb263e5 346 main/binary-amd64/Packages.gz
+ a2f395991c027219266ca3a5a45354992f71399611f17942f1fe576453e24fde 479 main/binary-amd64/Packages
+ 5c1b7b512c528a8052e0a3de816625da072f508b9a79212af6f621753465f795 352 main/binary-amd64/Packages.gz
 
 -----BEGIN PGP SIGNATURE-----
 
-wsFzBAEBCAAdBQJrBxY7FiEEs11utpsE3JtSEYasLAFw7TiTMkUACgkQLAFw7TiT
-MkXQ0A/7BXHxCRxY9t4IDhXL9hpUu+9+DDzf93WPOVHYq8CHw3mp9HljZ+DA3QHG
-Dq89mOdga17+vdqr9Ql/VeLeBT/CPJNd7o/T8flSnYEzpQTBdAOOejq/b4yds208
-uFCJn3SyJzbrujGwBisp7CLoAm4giuFCwSX4HzbbQ25nmepxn7DL7kaNOWmErMaw
-E22wEtpJklrqZJoJ1L9kAAKDGeQhX5+i/ZXVrLUsxdTCL5TdJ6wK41DJBaNYRIWa
-agf36F9ImVue4AX+ufcOZcHTeeLR2lKgenUg9TBW3a3EkaUFdZcrF+rDR+ivjDyy
-oZX2FUfc86HLcEC3zfCiBaZRmVk9Q/Ft7NCnNGBqmmxovUtGC7V1wOxVJf24h+UY
-XF+Kb9kxRpf9tdiMGe9ICN9X80U1isMUESqaomYTrgaWywWafpylqXISK3Ca5uM4
-v08D2TFIhv0HGS/ajn4qIH6CUc3SIPCkkjuloYZQ6GrIYr0sxjEPwjyE4/+/YcWF
-Hq+WpODbhZQTIX/7Hlfso6hioZ+ast1fiZCl14ZwhiyIEYnDQPaMOwnSwvzQ22Ov
-uMeHB/qj0knQC+MkHRlpnngA7BHTIkJsy0+nXOKHehdjG9fH2zWzMwfSiCmCocQY
-4ZzmAIfA9ssTpYgHIk1fZDcF3zuxcS/C5eFPi/vxxMfb+pwxjto=
-=lnen
+wsFzBAEBCAAdBQJrCA6LFiEEs11utpsE3JtSEYasLAFw7TiTMkUACgkQLAFw7TiT
+MkU/3Q//ZPGuFtB9l7oS6xRWWj34Be2/PpZ5PTvo/hp1RyJXwoX6CaF87kRV3XFf
+pINVghaECGL/GcvTakw0JMOQAQjsgzVZjOo3DkxlaA1sPTgQSUiXZfEZzX3gI8+N
+xv53zhz3b0jmM64EiT+gUmN4b0+xe1i/7LAvk/A9ffaoGgpjKXd4cIIMLzr7IGLg
+Ma6yTGymKHuJOI3xRq35o8W0pm0n9FzL0njhSUCkJtbyz+6BDhWbxLv1cY9lOB7e
+vaKjq+vpIkUjsrlE6+NlDGChO+PIQMi7U47zIDTsDW4S7vBCnCiDpTvuHX4vIiPK
+tMsF+Ry2ix09V+geYTV4IZj7ENZ6OasxE3yUthYavVmSlrc8drv1D8GwI4WdKqVE
+CnvIZNEXv+7c/niO2ubuB1iJ8WDYdDvEmhRxtqIAfVhMF9QMfHbr7urGlOumDWKU
+KrpHJjd5RpBXeHJGXE9b+EkcoFh1AALRbrUouI9vERen8l/4KZl/J7T8KzaTstoC
+wlp9dJeXYdaltDBn2tepojs42V+S80jbpti1J19pdhgr8Rgq9A92VsOdZc/dX6+b
+4umPHKjkmb5O2H0mfSYPraAimKRvNI42LwQVZ8I8YE6cTa2IcXma8MwqcQWibh6R
+xv4yUwbHTKU2IFnD0dJgF1MOfe25nZuvlL/J2mx8YBoRfS6LsTU=
+=HTsM
 -----END PGP SIGNATURE-----
