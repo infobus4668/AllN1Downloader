@@ -36,7 +36,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from yt_dlp.cookies import CookieLoadError, YoutubeDLCookieJar, load_cookies
 
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.1.1"
 UPDATE_REPOSITORY = os.environ.get("ALLN1_UPDATE_REPOSITORY", update_service.DEFAULT_REPOSITORY)
 UPDATE_LOCK = threading.Lock()
 UPDATE_STATE: Dict[str, Any] = {
@@ -133,7 +133,12 @@ def cookie_failure_message() -> str:
 def prepare_cookie_jar(ydl: yt_dlp.YoutubeDL, options: Dict[str, Any]) -> None:
     if options.get("cookiefile") is not None or options.get("cookiesfrombrowser"):
         ydl.cookiejar = load_cookies(options.get("cookiefile"), options.get("cookiesfrombrowser"), ydl)
-CODEC_FILTERS = {"h264": "avc1", "vp9": "vp9", "av1": "av01", "h265": "hev"}
+CODEC_FILTERS = {
+    "h264": ("avc", "h264"),
+    "vp9": ("vp9", "vp09"),
+    "av1": ("av01", "av1"),
+    "h265": ("hev", "hvc", "hevc", "h265"),
+}
 CODEC_ORDER = {"av1": 0, "vp9": 1, "h264": 2, "h265": 3}
 EMBED_THUMBNAIL_CONTAINERS = {"mp3", "m4a", "flac", "mp4", "mkv"}
 PROXY_SCHEMES = {"http", "https", "socks4", "socks4a", "socks5", "socks5h"}
@@ -321,15 +326,7 @@ def open_path(path: Path) -> None:
 
 def codec_family(vcodec: Any) -> str:
     value = str(vcodec or "").lower()
-    if value.startswith("av01"):
-        return "av1"
-    if value.startswith("vp9"):
-        return "vp9"
-    if value.startswith("avc"):
-        return "h264"
-    if value.startswith(("hev", "hvc")):
-        return "h265"
-    return ""
+    return next((family for family, prefixes in CODEC_FILTERS.items() if value.startswith(prefixes)), "")
 
 
 def audio_codec_family(acodec: Any) -> str:
@@ -458,17 +455,20 @@ def probe_media(path: Path) -> Optional[Dict[str, Any]]:
         result = subprocess.run(
             [FFPROBE, "-v", "error", "-print_format", "json", "-show_format", "-show_streams", str(path)],
             capture_output=True,
-            text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=30,
             check=False,
         )
     except (OSError, subprocess.SubprocessError):
         return None
-    if result.returncode != 0:
+    if result.returncode != 0 or not result.stdout:
         return None
     try:
         payload = json.loads(result.stdout)
     except ValueError:
+        return None
+    if not isinstance(payload, dict):
         return None
     streams = payload.get("streams") or []
     container = payload.get("format") or {}
@@ -768,7 +768,8 @@ def build_format(mode: str, quality: str, container: str, codec: str = "auto") -
             parsed = 0
         height = parsed if QUALITY_MIN <= parsed <= QUALITY_MAX else None
     cap = f"[height<={height}]" if height else ""
-    codec_part = f"[vcodec^={CODEC_FILTERS[codec]}]" if codec in CODEC_FILTERS else ""
+    prefixes = CODEC_FILTERS.get(codec)
+    codec_part = f"[vcodec~='(?i)^(?:{'|'.join(prefixes)})']" if prefixes else ""
     if container == "mp4":
         base = f"bv*[ext=mp4]{cap}+ba[ext=m4a]/bv*{cap}+ba/b{cap}/bv*{cap}"
         if codec_part:
@@ -1062,6 +1063,8 @@ def run_job(job: Job) -> None:
         else:
             if isinstance(exc, CookieLoadError):
                 message = "Could not load the selected cookies.txt file." if job.cookie_text is not None else cookie_failure_message()
+            elif isinstance(exc, yt_dlp.utils.DownloadError) and "drm" in str(exc).casefold():
+                message = "The selected stream is DRM-protected. This app can only download unprotected formats offered by the source."
             else:
                 message = clean_text(exc, 400) or "Download failed"
             with job.lock:
@@ -1304,9 +1307,51 @@ def apply_application_update() -> Dict[str, Any]:
     return {"status": "manual", "release_url": update.get("release_url", "")}
 
 
+def media_analysis_error(error: Exception) -> str:
+    """Translate extractor errors into actionable messages without exposing raw URLs or arguments."""
+    reason = str(error).casefold()
+    if "drm" in reason:
+        return "The source is DRM-protected. This app can only download unprotected formats."
+    if any(word in reason for word in ("authentication is required", "logged-in", "login required",
+                                       "sign in", "log in", "cookies-from-browser", "private video")):
+        return ("The source requires sign-in or permission. Open the link in your browser, then supply "
+                "a current cookies.txt export under Connection settings if you have access.")
+    if "429" in reason or "too many requests" in reason or "rate-limit" in reason:
+        return "The source is limiting requests. Wait and retry later."
+    if any(word in reason for word in ("no longer available", "404", "has been removed", "does not exist")):
+        return "The source says this link is unavailable or no longer exists. Check the original post or file."
+    if "unsupported url" in reason:
+        return "No supported media extractor recognized this page. Try a direct file URL or select Images or Documents to look for linked files."
+    if "unexpected response" in reason or "unable to extract" in reason:
+        return "The site returned media data the downloader could not read. Check that the link plays in your browser and try again later."
+    if "403" in reason or "forbidden" in reason:
+        return "The source refused access. Check whether the link plays in your browser or needs sign-in."
+    if any(word in reason for word in ("timed out", "timeout", "connection refused", "unable to download")):
+        return "The media source could not be reached. Check your connection or proxy and retry."
+    return "No downloadable media could be confirmed. Check the link and its access settings."
+
+
+def file_analysis_error(error: Exception) -> str:
+    if isinstance(error, file_downloads.FileDownloadError):
+        return str(error)
+    status = getattr(getattr(error, "response", None), "status_code", None)
+    if status in (401, 403):
+        return "The file server refused access. Open the link in your browser; it may require a signed-in session."
+    if status in (404, 410):
+        return "The file server says this link is unavailable. Check the original page for a current link."
+    if status == 429:
+        return "The file server is limiting requests. Wait and retry later."
+    if status is not None and status >= 500:
+        return f"The file server is temporarily unavailable (HTTP {status}). Retry later."
+    return "Could not reach the file server. Check the link and your connection or proxy."
+
+
 @app.post("/api/info")
 def get_info(req: InfoRequest) -> Dict[str, Any]:
     url = validate_url(req.url)
+    photo = file_downloads.x_status(url)
+    if req.mode is None and photo and photo[2]:
+        req.mode = "auto"
     if req.mode not in {None, "auto", "video", "audio", "image", "document"}:
         raise HTTPException(status_code=400, detail="Invalid analysis type")
     if req.mode in {"auto", "image", "document"}:
@@ -1329,9 +1374,8 @@ def get_info(req: InfoRequest) -> Dict[str, Any]:
             raise HTTPException(status_code=400, detail=detail) from None
         except (file_downloads.FileDownloadError, requests.RequestException) as exc:
             ext = file_downloads.extension(urlparse(url).path)
-            if req.mode != "auto" or file_downloads.FILE_EXTENSIONS.get(ext) in {"image", "document"}:
-                detail = str(exc) if isinstance(exc, file_downloads.FileDownloadError) else "Could not read this file or source. Check the link and your access."
-                raise HTTPException(status_code=400, detail=detail) from None
+            if req.mode != "auto" or (photo and photo[2]) or file_downloads.FILE_EXTENSIONS.get(ext) in {"image", "document"}:
+                raise HTTPException(status_code=400, detail=file_analysis_error(exc)) from None
         if req.mode != "auto":
             raise HTTPException(status_code=400, detail="No supported files were found for the selected type.")
     ydl_opts: Dict[str, Any] = {
@@ -1340,7 +1384,7 @@ def get_info(req: InfoRequest) -> Dict[str, Any]:
         "skip_download": True,
         "extract_flat": "in_playlist",
         "playlistend": 200,
-        "ignoreerrors": True,
+        "ignoreerrors": False,
         "socket_timeout": 25,
         "extractor_retries": 2,
         "retries": 3,
@@ -1362,8 +1406,11 @@ def get_info(req: InfoRequest) -> Dict[str, Any]:
     except CookieLoadError:
         message = "Could not load the selected cookies.txt file." if req.cookies_text is not None else cookie_failure_message()
         raise HTTPException(status_code=400, detail=message) from None
-    except Exception as exc:  # noqa: BLE001 - report any analysis failure to the UI
-        raise HTTPException(status_code=400, detail=clean_text(exc, 400) or "Could not analyze this link")
+    except yt_dlp.utils.DownloadError as exc:
+        raise HTTPException(status_code=400, detail=media_analysis_error(exc)) from None
+    except Exception:  # noqa: BLE001 - keep unexpected errors distinct from an empty result
+        logging.exception("Unexpected media analysis failure")
+        raise HTTPException(status_code=502, detail="The media analyzer failed unexpectedly. Retry the link or report the issue.") from None
     if not info:
         raise HTTPException(status_code=400, detail="No media found at this link")
 

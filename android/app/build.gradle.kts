@@ -52,8 +52,8 @@ android {
         minSdk = 29
         targetSdk = 37
         // Keep the existing applicationId/signing key so users can update their installation.
-        versionCode = 7
-        versionName = "1.1.0"
+        versionCode = 8
+        versionName = "1.1.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += setOf("arm64-v8a", "x86_64") }
     }

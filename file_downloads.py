@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ipaddress
+import json
 import mimetypes
 import re
 import socket
@@ -11,7 +12,7 @@ from dataclasses import dataclass
 from email.message import Message as HeaderMessage
 from html.parser import HTMLParser
 from pathlib import Path
-from urllib.parse import quote, unquote, urljoin, urlsplit
+from urllib.parse import parse_qs, quote, unquote, urljoin, urlsplit
 
 import requests
 
@@ -34,6 +35,8 @@ MAX_JOB_BYTES = 2 * 1024 * 1024 * 1024
 MAX_PAGE = 1024 * 1024
 OFFICE = {"docx": "word/document.xml", "xlsx": "xl/workbook.xml", "pptx": "ppt/presentation.xml",
           "epub": "META-INF/container.xml", "odt": "content.xml", "ods": "content.xml", "odp": "content.xml"}
+X_HOSTS = {"x.com", "www.x.com", "twitter.com", "www.twitter.com", "mobile.twitter.com"}
+X_STATUS = re.compile(r"/(?:[A-Za-z0-9_]+|i/web)/status/([0-9]{1,25})(?:/photo/([1-9][0-9]?))?/?$")
 
 
 class FileDownloadError(ValueError):
@@ -131,7 +134,6 @@ def _bounded(response, maximum=MAX_PAGE):
 
 
 def _json(session, url, **params):
-    import json
     with session.get(url, params=params, stream=True, timeout=(5, 12)) as response:
         response.raise_for_status()
         try:
@@ -149,11 +151,17 @@ class PageLinks(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
         self.links = []
+        self.refresh = None
 
     def handle_starttag(self, tag, attrs):
         if len(self.links) >= MAX_ITEMS:
             return
         fields = dict(attrs)
+        if tag == "meta" and (fields.get("http-equiv") or "").casefold() == "refresh":
+            match = re.fullmatch(r"\s*0(?:\.0+)?\s*;\s*url\s*=\s*(.+?)\s*", fields.get("content") or "", re.I)
+            if match and self.refresh is None:
+                self.refresh = match[1].strip("\"'")
+            return
         # Only explicit downloadable links or images advertised by the page itself.
         if tag == "a":
             href = fields.get("href") or ""
@@ -169,13 +177,113 @@ class PageLinks(HTMLParser):
             self.links.append(href)
 
 
+def page_is_html(response) -> bool:
+    mime = response.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+    return mime in {"text/html", "application/xhtml+xml"}
+
+
+def same_file_handoff(url: str, target: str | None) -> str | None:
+    """Accept an immediate refresh only for the same file with a changed query."""
+    if not target:
+        return None
+    destination = urljoin(url, target)
+    original, candidate = urlsplit(url), urlsplit(destination)
+    if (original.scheme, original.netloc, original.path) != (candidate.scheme, candidate.netloc, candidate.path):
+        return None
+    if not candidate.query or candidate.query == original.query or candidate.fragment:
+        return None
+    return destination
+
+
 def looks_like_file(url: str) -> bool:
     return extension(unquote(urlsplit(url).path)) in FILE_EXTENSIONS
 
 
 def known_collection(url: str) -> bool:
     host = (urlsplit(url).hostname or "").lower()
-    return host in {"archive.org", "www.archive.org", "arxiv.org", "www.arxiv.org", "commons.wikimedia.org"}
+    status = x_status(url)
+    return host in {"archive.org", "www.archive.org", "arxiv.org", "www.arxiv.org", "commons.wikimedia.org"} or bool(status and status[2])
+
+
+def x_status(url: str):
+    parts = urlsplit(url)
+    return X_STATUS.fullmatch(parts.path) if parts.hostname in X_HOSTS else None
+
+
+def x_photo_item(url: str) -> FileItem | None:
+    try:
+        parts = urlsplit(url)
+        if parts.scheme != "https" or parts.netloc != "pbs.twimg.com":
+            return None
+        match = re.fullmatch(r"/media/([A-Za-z0-9_-]+)(?:\.([A-Za-z0-9]+))?", parts.path)
+    except ValueError:
+        return None
+    if not match:
+        return None
+    media_id, file_ext = match.groups()
+    file_ext = (file_ext or parse_qs(parts.query).get("format", [""])[0]).lower()
+    if file_ext not in EXTENSIONS["image"]:
+        return None
+    return FileItem(f"https://pbs.twimg.com/media/{media_id}?format={file_ext}&name=orig",
+                    f"{media_id}.{file_ext}", "image")
+
+
+class XPhotoMetadata(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.fields = {}
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "meta":
+            attrs = dict(attrs)
+            key = attrs.get("property") or attrs.get("name")
+            if key in {"og:url", "og:image", "twitter:image"} and attrs.get("content"):
+                self.fields.setdefault(key, attrs["content"])
+
+
+def x_post_photos(page: str, post_id: str, selected: int | None) -> list[FileItem]:
+    matches = {}
+    described = set()
+    decoder = json.JSONDecoder()
+    # X embeds arrays either as JSON data or as JSON text inside a script string.
+    for payload in (page, page.replace(r'\"', '"')):
+        for marker in re.finditer(r'"(?:media_entities2|extended_entities)"\s*:\s*(?=\[|\{)', payload):
+            try:
+                data, _ = decoder.raw_decode(payload, marker.end())
+            except (ValueError, RecursionError):
+                continue
+            rows = data.get("media") if isinstance(data, dict) else data
+            for row in rows if isinstance(rows, list) else ():
+                if not isinstance(row, dict):
+                    continue
+                try:
+                    match = x_status(str(row.get("expanded_url") or ""))
+                except ValueError:
+                    continue
+                if not match or match[1] != post_id or not match[2]:
+                    continue
+                described.add(int(match[2]))
+                if row.get("type") != "photo":
+                    continue
+                photo = x_photo_item(str(row.get("media_url_https") or ""))
+                if photo:
+                    matches.setdefault(int(match[2]), photo)
+    if selected is None:
+        return [matches[index] for index in sorted(matches)]
+    if selected in matches:
+        return [matches[selected]]
+    if selected == 1 and not described:
+        metadata = XPhotoMetadata()
+        metadata.feed(page)
+        try:
+            canonical = x_status(metadata.fields.get("og:url", ""))
+        except ValueError:
+            canonical = None
+        if canonical and canonical[1] == post_id:
+            photo = x_photo_item(metadata.fields.get("og:image", metadata.fields.get("twitter:image", "")))
+            if photo:
+                return [photo]
+    return []
 
 
 def resolve_files(url: str, mode: str, session: requests.Session, cancelled=lambda: False):
@@ -206,6 +314,17 @@ def resolve_files(url: str, mode: str, session: requests.Session, cancelled=lamb
                     break
         return result
 
+    if mode in {"image", "auto"} and (match := x_status(url)):
+        post_id, number = match.groups()
+        # X commonly redirects /photo/N to the post. Preserve the requested number separately.
+        with session.get(url, stream=True, timeout=(5, 12)) as response:
+            response.raise_for_status()
+            page = _bounded(response).decode("utf-8", errors="replace")
+        photos = x_post_photos(page, post_id, int(number) if number else None)
+        if not photos and (number or mode == "image"):
+            raise FileDownloadError("X did not expose the requested photo. Try the direct image URL or sign in with a current cookies.txt file.")
+        return select(photos), "X photos"
+
     if host in {"archive.org", "www.archive.org"} and (match := re.fullmatch(r"/details/([\w.-]+)/*", path)):
         identifier = quote(match[1], safe="")
         listing = _json(session, f"https://archive.org/metadata/{identifier}")
@@ -231,10 +350,19 @@ def resolve_files(url: str, mode: str, session: requests.Session, cancelled=lamb
         candidate = describe_response(response)
         if candidate:
             return select([candidate]), "Direct file"
-        if mode in ("image", "document") and response.headers.get("Content-Type", "").lower().startswith("text/html"):
+        if page_is_html(response) and (mode in ("image", "document") or looks_like_file(response.url)):
             parser = PageLinks()
             parser.feed(_bounded(response).decode(response.encoding or "utf-8", errors="replace"))
-            return select(item(urljoin(response.url, href)) for href in parser.links), "Page files"
+            handoff = same_file_handoff(response.url, parser.refresh) if looks_like_file(response.url) else None
+            if handoff:
+                with session.get(handoff, stream=True, timeout=(5, 12)) as download:
+                    download.raise_for_status()
+                    direct = describe_response(download)
+                if direct:
+                    return select([direct]), "Direct file"
+                raise FileDownloadError("The file download page did not deliver the requested file.")
+            if mode in ("image", "document"):
+                return select(item(urljoin(response.url, href)) for href in parser.links), "Page files"
     return [], "Direct file"
 
 

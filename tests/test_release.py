@@ -118,6 +118,43 @@ class QueueTests(unittest.TestCase):
             }, download=False)
         self.assertEqual(result['format_id'], 'direct')
 
+    def test_instagram_vp09_is_listed_and_selected_as_vp9(self):
+        formats = [
+            {'format_id': 'vp9', 'url': 'https://example.com/vp9.mp4', 'ext': 'mp4',
+             'height': 1280, 'vcodec': 'vp09.00.31.08', 'acodec': 'none'},
+            {'format_id': 'av1', 'url': 'https://example.com/av1.mp4', 'ext': 'mp4',
+             'height': 1920, 'vcodec': 'av01.0.08M.08', 'acodec': 'none'},
+            {'format_id': 'audio', 'url': 'https://example.com/audio.m4a', 'ext': 'm4a',
+             'vcodec': 'none', 'acodec': 'mp4a.40.5'},
+        ]
+        self.assertEqual(app.describe_qualities(formats)[1]['formats'][0]['codec'], 'vp9')
+        selector = app.build_format('video', 'best', 'mp4', 'vp9')
+        with app.yt_dlp.YoutubeDL({'format': selector, 'quiet': True}) as ydl:
+            result = ydl.process_ie_result({'id': 'reel', 'title': 'Reel', 'formats': formats}, download=False)
+        self.assertEqual(result['format_id'], 'vp9+audio')
+
+    def test_empty_ffprobe_output_does_not_fail_a_completed_download(self):
+        path = self.home / 'saved.mp4'
+        path.touch()
+        with patch.object(app, 'FFPROBE', 'ffprobe'), patch.object(app.subprocess, 'run',
+                return_value=subprocess.CompletedProcess([], 0, stdout=None)):
+            self.assertIsNone(app.probe_media(path))
+
+    def test_analyze_explains_extractor_access_failures(self):
+        cases = [
+            ('Account authentication is required. Use --cookies', 'cookies.txt'),
+            ('This clip is no longer available', 'no longer exists'),
+            ('Unexpected response from webpage request', 'could not read'),
+            ('HTTP Error 429: Too Many Requests', 'limiting requests'),
+        ]
+        for message, expected in cases:
+            with self.subTest(message=message), patch.object(
+                    app.yt_dlp.YoutubeDL, 'extract_info', side_effect=app.yt_dlp.utils.DownloadError(message)):
+                with self.assertRaises(app.HTTPException) as raised:
+                    app.get_info(app.InfoRequest(url='https://example.com/video', mode='video'))
+                self.assertEqual(raised.exception.status_code, 400)
+                self.assertIn(expected, raised.exception.detail)
+
     def test_cookie_file_is_loaded_in_memory_but_not_saved_in_history(self):
         text = '# Netscape HTTP Cookie File\n.example.com\tTRUE\t/\tTRUE\t0\tsession\tfixture-secret\n'
         with patch.object(app, 'ANDROID_MODE', True), patch.object(app.EXECUTOR, 'submit', return_value=Future()):

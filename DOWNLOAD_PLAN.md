@@ -76,3 +76,10 @@ validation, redirect handling, queueing, file type checks and export.
 Sources can change independently of the app. Login-protected pages, arbitrary
 cloud share URLs, and social galleries without a verified adapter are not
 guaranteed to resolve. Try the direct file URL when a provider offers one.
+
+The X photo adapter handles public posts with photo metadata, including numbered
+`/photo/N` links, in **Auto detect** and **Images** modes. The reported single
+photo link was verified through analysis and the download queue.
+
+See [live source QA](LIVE_SOURCE_QA.md) for the broader public sample matrix,
+verified downloads, and provider-specific failures.

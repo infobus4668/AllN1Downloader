@@ -1,5 +1,13 @@
 # AllN1Downloader — release and update guide
 
+## 1.1.1 changes
+
+- Added support for numbered X photo links and verified the reported photo end to end.
+- Fixed Instagram VP9 format selection and Windows media verification when metadata contains non-ASCII text.
+- Original-file downloads now follow same-file EPUB handoffs, such as Standard Ebooks.
+- Improved analysis messages for sign-in, rate limits, removed posts, protected streams, and server outages.
+- Added a [repeatable live QA matrix](LIVE_SOURCE_QA.md) with verified examples and known provider limits.
+
 ## 1.1.0 changes
 
 - Added original image and document downloads, plus a shared direct-file path
