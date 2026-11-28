@@ -5,27 +5,27 @@ Origin: AllN1Downloader
 Label: AllN1Downloader
 Suite: stable
 Codename: stable
-Date: Thu, 26 Nov 2026 18:07:16 GMT
+Date: Sat, 28 Nov 2026 13:17:50 GMT
 Architectures: amd64
 Components: main
 Description: AllN1Downloader signed package repository
 SHA256:
- 1cd324616dba6a171b4fe57ac7b4ee6ca21b2fb3ce513e82da537f7336dbef08 479 main/binary-amd64/Packages
- b589d25fcde816e1885b0750c660f0a3149b62d1fe1324274ce19170196de0d6 351 main/binary-amd64/Packages.gz
+ 0d163eb22f15b62459237b2d416386890a3749e8552b139a5613a9991e396875 479 main/binary-amd64/Packages
+ 7d4e980921e621c92da48c835ca94b6e6d7cf7acc401226583ad16595e0c9f50 350 main/binary-amd64/Packages.gz
 
 -----BEGIN PGP SIGNATURE-----
 
-wsFzBAEBCAAdBQJrCHVWFiEEs11utpsE3JtSEYasLAFw7TiTMkUACgkQLAFw7TiT
-MkUXSg//QrSRD2hIuX2W6aIMXM5syfBi2c26REYpUSJRe2KHqLe3CtaO+K7qyDkc
-Ur2ASSv5CT3pARa/zJ0CWbKVj1Kc9OHAV2d1GrnlL1F6tdZ+JQ6yNBd9ky2iVKet
-eLiLybKLb4q1wpskn6FdhEoi/3sfkSU8MKoe8MTCMqttmov3m03BKlmspA6VUdv9
-I7ZwdqRDhrKALPfT0KTp8MLzKobYv1Oe5EjWHPG1b5DgMTiCEsw6V4JE1yaI8sHF
-qdD65MGFuf0SKvOgn6zgFGeTXH3Ls9hKZIeF6+Y8Df3lXwj/6CjXT2hZKyGJQ8ia
-CU6okM8xAprpxtDGBku0hE/kDHzM7j5V+HZIpxfH+UBlze5r7Bl0tLTFM/ucsO1v
-jeaLGMELUT1S4lTWWSXfe4gXQGuJVvbarXuHv6yge8ID9A1/nGQw5+/3N7IuTQqj
-IgC+5A6jRT4CM+MuwqvleYwRJMwi1i+VB0Y35nyJ7juzM9ouumvUQy+0vFgfFgNY
-4a8LoLJUjSl3vmlcJSbkVKiQ8gAyztddvGFuNqamVPQ2M++z3MxBccPtGzHom1uP
-t051iJ05KrvPz5A22iopVn3iE8bUzhVlX67Yfu7+Rbd50H7Z/F2iryzeLl51xyKr
-/Pb4kahuqa0hNLX0KCOaPoH9RKkiZMKdzoc3+QUA2YVFdiM2abs=
-=Q2ZH
+wsFzBAEBCAAdBQJrCtSAFiEEs11utpsE3JtSEYasLAFw7TiTMkUACgkQLAFw7TiT
+MkVjnxAA4oyKF5NOHx+sQlV+xZuqVnar6lH4MgkCzcWuJOoPrDZINQcVw2XfM+6h
+QkMk0MSuKt+Cw+JiibcXsgMZqTIxIh+9bWggtAptmqwgo79vLOc+vK6M1bebJsIn
+Ja9YTrBA4ENqVaFgNEKGfam6SW9jrwRb4gJpLtVp+OaTSakWlqdLRhf0A1BMMdDg
+1xKv/Jy60bx3+pzQC1GcHGmBwdgFbq2EbFVjRBEhqzlJ0okIbuF44DPTAJHc5kV1
+Q6IfnejydA98oB329mHkFDFMbhz6rS7NvX+J4XBdV/wjqxBCTrxR1Xp2G2yGswm2
+avI1kQbX0T5OX19kLg5hmwvmILMf1f1ngZmZxyxWU4X6r6bLgx0KP9wbnuq5ixxP
+f2/7SuMMVNTSN1d14xnHE+8K1YGt5rXwaqe0fGcDkd2GmUP7uN4YqZiLaPuzhDxU
+lvq1B0qnqElCZfmISQjTRZpxc62o5asTEwbctE4YACnbr78nCuHnpJtdJTOVHPmO
+Rw6oIUjJypovGLMjqCC/r/U72v9RWmXFpd3RqKTRpRUhyoSPleR81PeueJYhDyeB
+SLQ3SYth+qWg6bxIBgzsSE50QRYdd3ELQ1Q3+TftRcnjtIITgSdgQDCjJEpmtu2G
+gV0Sji5iFmB5CKdEAuTqBQ1q9QcmckyWt+KZ+oyp6pat0tUEVNI=
+=eM9P
 -----END PGP SIGNATURE-----

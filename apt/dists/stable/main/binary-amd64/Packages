@@ -1,5 +1,5 @@
 Package: alln1downloader
-Version: 1.1.1
+Version: 1.1.2
 Section: video
 Priority: optional
 Architecture: amd64
@@ -8,7 +8,7 @@ Suggests: nodejs (>= 20)
 Maintainer: AllN1Downloader maintainers
 Description: Local downloader for video, audio, images and documents
  Download files to the current user's machine using a loopback-only web interface.
-Filename: pool/main/alln1downloader_1.1.1_amd64.deb
-Size: 39675344
-SHA256: 943e1d21ff71537c72e1436e8d926172a03a1fc464551760c0b4bbedb4442cc5
+Filename: pool/main/alln1downloader_1.1.2_amd64.deb
+Size: 39677856
+SHA256: be1d17db7b745aba30faa969044a3686f665abeeeee9113e3ecbd5021897081e
 
