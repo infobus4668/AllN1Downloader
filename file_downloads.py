@@ -148,33 +148,44 @@ def _json(session, url, **params):
 
 
 class PageLinks(HTMLParser):
-    def __init__(self):
+    def __init__(self, kind: str):
         super().__init__(convert_charrefs=True)
+        self.kind = kind
         self.links = []
         self.refresh = None
 
     def handle_starttag(self, tag, attrs):
-        if len(self.links) >= MAX_ITEMS:
-            return
         fields = dict(attrs)
         if tag == "meta" and (fields.get("http-equiv") or "").casefold() == "refresh":
             match = re.fullmatch(r"\s*0(?:\.0+)?\s*;\s*url\s*=\s*(.+?)\s*", fields.get("content") or "", re.I)
             if match and self.refresh is None:
                 self.refresh = match[1].strip("\"'")
             return
-        # Only explicit downloadable links or images advertised by the page itself.
+        if len(self.links) >= MAX_ITEMS:
+            return
         if tag == "a":
-            href = fields.get("href") or ""
+            urls = (fields.get("href"),)
         elif tag == "meta" and fields.get("property") in {"og:image", "og:image:url", "og:image:secure_url"}:
-            href = fields.get("content") or ""
+            urls = (fields.get("content"),)
+        elif tag == "img" and self.kind == "image":
+            # Prefer the real lazy-loaded image over a placeholder when both are present.
+            urls = (fields.get("data-src"), fields.get("src"))
         else:
             return
-        try:
-            ext = extension(unquote(urlsplit(href).path))
-        except ValueError:
-            return
-        if ext in EXTENSIONS["document"] | EXTENSIONS["image"]:
-            self.links.append(href)
+        for href in urls:
+            if not href:
+                continue
+            href = href.strip()
+            try:
+                parsed = urlsplit(href)
+            except ValueError:
+                continue
+            if parsed.scheme not in {"", "http", "https"}:
+                continue
+            if extension(unquote(parsed.path)) in EXTENSIONS.get(self.kind, set()):
+                if href not in self.links:
+                    self.links.append(href)
+                return
 
 
 def page_is_html(response) -> bool:
@@ -351,7 +362,7 @@ def resolve_files(url: str, mode: str, session: requests.Session, cancelled=lamb
         if candidate:
             return select([candidate]), "Direct file"
         if page_is_html(response) and (mode in ("image", "document") or looks_like_file(response.url)):
-            parser = PageLinks()
+            parser = PageLinks(mode)
             parser.feed(_bounded(response).decode(response.encoding or "utf-8", errors="replace"))
             handoff = same_file_handoff(response.url, parser.refresh) if looks_like_file(response.url) else None
             if handoff:

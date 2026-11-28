@@ -36,7 +36,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from yt_dlp.cookies import CookieLoadError, YoutubeDLCookieJar, load_cookies
 
-APP_VERSION = "1.1.1"
+APP_VERSION = "1.1.2"
 UPDATE_REPOSITORY = os.environ.get("ALLN1_UPDATE_REPOSITORY", update_service.DEFAULT_REPOSITORY)
 UPDATE_LOCK = threading.Lock()
 UPDATE_STATE: Dict[str, Any] = {
@@ -302,6 +302,11 @@ def validate_url(raw: str) -> str:
         raise HTTPException(status_code=400, detail="Enter a valid http(s) link")
     if parsed.scheme not in ("http", "https") or not hostname:
         raise HTTPException(status_code=400, detail="Enter a valid http(s) link")
+    if hostname in {"istockphoto.com", "www.istockphoto.com"} and parsed.path.startswith(("/photos/", "/search/")):
+        raise HTTPException(status_code=400, detail=(
+            "This iStock link opens search results. Open an individual photo in your browser and paste "
+            "its direct image address into Images mode. Use iStock's Download button for the licensed file."
+        ))
     return raw
 
 
@@ -1365,7 +1370,7 @@ def get_info(req: InfoRequest) -> Dict[str, Any]:
                     "original_files": True, "source_mode": req.mode, "is_playlist": len(items) > 1,
                     "entries": [{"index": index, "key": file_key(item), "title": item.name,
                                  "kind": item.kind, "size": item.size,
-                                 "thumbnail": clean_thumbnail(item.url) if item.kind == "image" and req.cookies_text is None
+                                 "thumbnail": clean_thumbnail(item.url) if source != "Page files" and item.kind == "image" and req.cookies_text is None
                                  and not req.cookies_browser and not urlparse(item.url).query else None}
                                 for index, item in enumerate(items, 1)],
                 }

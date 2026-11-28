@@ -26,3 +26,13 @@ listed URLs, not every post or every format a provider offers.
 
 The Standard Ebooks sample first returns a download page with a same-file refresh.
 The app now follows that single handoff and verifies the resulting EPUB.
+
+## Follow-up QA — November 28, 2026 (local 1.1.2)
+
+- The signed Windows build found an embedded image on the [W3C biography page](https://www.w3.org/People/Berners-Lee/)
+  and saved `2001-europaeum-eighth.jpg` (16,920 bytes).
+- The reported iStock search URL now identifies itself as a catalogue link and
+  explains how to supply a direct image address. The direct iStock preview was
+  previously verified. The site still refused programme access to its search page.
+- All 38 automated tests and the Windows packaged smoke test passed. Android
+  lint and signature checks passed for the rebuilt APK and AAB.

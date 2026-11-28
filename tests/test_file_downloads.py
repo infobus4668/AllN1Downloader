@@ -31,6 +31,8 @@ class FixtureHandler(BaseHTTPRequestHandler):
             return
         records = {
             '/page': ('text/html', b'<a href="/report.pdf">Report</a><a href="/image.png">Photo</a>'),
+            '/gallery': ('text/html', b'<a href="/report.pdf">Report</a>' * 110 +
+                         b'<img src="/placeholder.png" data-src="/image.png">'),
             '/report.pdf': ('application/pdf', b'%PDF-1.4\n% fixture\n%%EOF\n'),
             '/image.png': ('image/png', b'\x89PNG\r\n\x1a\nfixture'),
             '/extensionless': ('image/png', b'\x89PNG\r\n\x1a\nfixture'),
@@ -105,6 +107,14 @@ class FileDownloadsTest(unittest.TestCase):
             self.assertTrue(zipfile.is_zipfile(self.root / 'book.epub'))
             self.assertFalse(files.resolve_files(self.url + '/other.epub', 'document', session)[0])
             self.assertTrue(all(call.args[0].startswith(self.url) for call in guard.call_args_list))
+
+    def test_embedded_photo_is_downloadable_even_after_many_document_links(self):
+        with patch.object(files, 'public_url'), files.session_for() as session:
+            items, source = files.resolve_files(self.url + '/gallery', 'image', session)
+            self.assertEqual(source, 'Page files')
+            self.assertEqual([item.name for item in items], ['image.png'])
+            files.save_file(items[0], session, self.root, lambda: False, lambda *_: None)
+        self.assertTrue((self.root / 'image.png').read_bytes().startswith(b'\x89PNG'))
 
     def test_compressed_text_and_same_kind_mime_correction(self):
         with patch.object(files, 'public_url'), files.session_for() as session:

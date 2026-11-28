@@ -1,5 +1,13 @@
 # AllN1Downloader — release and update guide
 
+## 1.1.2 changes
+
+- **Images** mode detects supported image files embedded on accessible public
+  pages, including common lazy-loaded links. Document links do not use up the
+  image results limit.
+- iStock catalogue URLs now explain how to use a direct preview image address
+  or obtain a licensed file through iStock.
+
 ## 1.1.1 changes
 
 - Added support for numbered X photo links and verified the reported photo end to end.
